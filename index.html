@@ -32,10 +32,15 @@
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
     .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
-    #tv-widget{ height:420px }
+
+    /* Widgets */
+    .tv-box, .ratio-box{ position:relative; width:100%; height:420px; border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.03); }
+    .ratio-box{ padding-top:56.25%; height:auto; }
+    .ratio-box iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
     .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
     .btn{ background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2); padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer }
     .btn:hover{ filter:brightness(1.1) }
+    .center{ display:flex; align-items:center; justify-content:center; height:240px; text-align:center; }
   </style>
 </head>
 <body>
@@ -78,15 +83,25 @@
       <div class="small muted">Source: Alternative.me</div>
     </section>
 
-    <!-- BTC Dominance -->
+    <!-- BTC Dominance (TradingView) -->
     <section class="card span-6">
       <h3 style="margin-top:0">Bitcoin Dominance (BTC.D)</h3>
-      <div id="tv-widget"></div>
+      <div id="tv-btcd" class="tv-box"></div>
       <div class="actions">
-        <button id="reloadTv" class="btn">Reload chart</button>
+        <button data-reload="btcd" class="btn">Reload chart</button>
         <a class="btn" href="https://www.tradingview.com/chart?symbol=CRYPTOCAP%3ABTC.D" target="_blank" rel="noopener">Open in TradingView ↗</a>
       </div>
       <div class="small muted">Source: TradingView</div>
+    </section>
+
+    <!-- MSTR mNAV Trend (StrategyTracker embed with fallback) -->
+    <section class="card span-12">
+      <h3 style="margin-top:0">MSTR — NAV Premium (Basic)</h3>
+      <div id="mnav-embed" class="ratio-box"></div>
+      <div class="small muted">Source: StrategyTracker. If the embed is blocked, use the button to open in a new tab.</div>
+      <div class="actions">
+        <a class="btn" href="https://strategytracker.com/mstr" target="_blank" rel="noopener">Open on StrategyTracker ↗</a>
+      </div>
     </section>
 
     <!-- Notes -->
@@ -101,7 +116,7 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, StrategyTracker</footer>
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -115,8 +130,8 @@
       fgiLabel: document.getElementById('fgiLabel'),
       riskPill: document.getElementById('riskPill'),
       usdsek: document.getElementById('usdsek'),
-      tvWidget: document.getElementById('tv-widget'),
-      reloadTvBtn: document.getElementById('reloadTv'),
+      tvBtcd: document.getElementById('tv-btcd'),
+      mnavBox: document.getElementById('mnav-embed'),
     };
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
     const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
@@ -179,22 +194,22 @@
     }
     function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)', true); }
 
-    /* ---------- TradingView (retry) ---------- */
-    function mountTradingView(attempt = 0){
-      els.tvWidget.innerHTML = '';
+    /* ---------- TradingView (reusable + retry) ---------- */
+    function mountTradingView(container, symbol, attempt = 0){
+      container.innerHTML = '';
       try{
         const s = document.createElement('script');
         s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
         s.async = true;
         s.innerHTML = JSON.stringify({
           autosize:false, width:"100%", height:420,
-          symbol:"CRYPTOCAP:BTC.D", interval:"D",
+          symbol, interval:"D",
           timezone:"Europe/Stockholm",
           theme:(matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? "dark" : "light",
           style:"3", locale:"en", withdateranges:true,
           hide_side_toolbar:true, hide_top_toolbar:false,
-          allow_symbol_change:false, hide_legend:true,
-          studies:[], backgroundColor:"transparent"
+          allow_symbol_change:false, hide_legend:true, studies:[],
+          backgroundColor:"transparent"
         });
         const wrap = document.createElement('div');
         wrap.className = "tradingview-widget-container";
@@ -203,18 +218,40 @@
         cont.className = "tradingview-widget-container__widget";
         cont.style.height = "100%";
         wrap.appendChild(cont); wrap.appendChild(s);
-        els.tvWidget.appendChild(wrap);
+        container.appendChild(wrap);
 
         setTimeout(() => {
-          const iframe = els.tvWidget.querySelector('iframe');
+          const iframe = container.querySelector('iframe');
           const broken = !iframe || iframe.clientHeight < 200 || iframe.clientWidth < 200;
-          if (broken && attempt < 3) mountTradingView(attempt+1);
-          if (broken && attempt >= 3)
-            els.tvWidget.innerHTML = '<div class="small muted">Chart failed to load. <a href="https://www.tradingview.com/chart?symbol=CRYPTOCAP%3ABTC.D" target="_blank" rel="noopener">Open in TradingView ↗</a></div>';
+          if (broken && attempt < 3) mountTradingView(container, symbol, attempt+1);
+          if (broken && attempt >= 3) {
+            container.innerHTML = `<div class="small muted">Chart failed to load. 
+              <a href="https://www.tradingview.com/chart?symbol=${encodeURIComponent(symbol)}" target="_blank" rel="noopener">Open in TradingView ↗</a></div>`;
+          }
         }, 2500);
       }catch(e){
-        if (attempt < 3) setTimeout(() => mountTradingView(attempt+1), 1000);
+        if (attempt < 3) setTimeout(() => mountTradingView(container, symbol, attempt+1), 1000);
       }
+    }
+
+    /* ---------- StrategyTracker embed with fallback ---------- */
+    function mountMnavEmbed(){
+      const iframe = document.createElement('iframe');
+      iframe.src = "https://strategytracker.com/mstr?embed=1";
+      iframe.loading = "lazy";
+      iframe.referrerPolicy = "no-referrer-when-downgrade";
+
+      const fallback = document.createElement('div');
+      fallback.className = "center small muted";
+      fallback.innerHTML = 'Unable to embed StrategyTracker here. <a href="https://strategytracker.com/mstr" target="_blank" rel="noopener">Open on StrategyTracker ↗</a>';
+
+      let embedded = false;
+      iframe.addEventListener('load', () => { embedded = true; });
+      setTimeout(() => {
+        if (!embedded) { els.mnavBox.innerHTML = ""; els.mnavBox.appendChild(fallback); }
+      }, 3000);
+
+      els.mnavBox.appendChild(iframe);
     }
 
     /* ---------- Init ---------- */
@@ -228,20 +265,26 @@
         els.riskPill.className = 'risk-pill ' + cls;
         els.riskPill.textContent = `${level} (${Math.round(composite)})`;
         drawFgiChart(fgi.series);
-        setTimeout(() => mountTradingView(0), 60);
       }catch(err){
         console.error(err);
         els.updated.textContent = "Some data failed to load. Try refresh.";
-        setTimeout(() => mountTradingView(0), 60);
       }
 
       fetchUsdSek().catch(()=>{});
+
+      // Load widgets
+      setTimeout(() => mountTradingView(els.tvBtcd, "CRYPTOCAP:BTC.D", 0), 60);
+      setTimeout(() => mountMnavEmbed(), 120);
 
       els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
     init();
 
-    if (els.reloadTvBtn) els.reloadTvBtn.addEventListener('click', () => mountTradingView(0));
+    // Reload handler for BTC.D
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-reload="btcd"]');
+      if (btn) mountTradingView(els.tvBtcd, "CRYPTOCAP:BTC.D", 0);
+    });
   </script>
 </body>
 </html>
