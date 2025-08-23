@@ -30,7 +30,7 @@
       background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px;
       box-shadow:0 10px 30px rgba(0,0,0,0.2);
     }
-    .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
+    .span-4{ grid-column:span 4 } .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
     .kpis{ display:flex; gap:16px; flex-wrap:wrap }
     .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.03); border-radius:12px; padding:12px 14px }
     .kpi h3{ margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.3px }
@@ -42,8 +42,7 @@
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
     .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
-
-    /* TradingView space + controls */
+    /* Give TradingView space so it doesn't squash */
     #tv-widget { height: 420px; }
     .tv-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
     .btn{
@@ -51,6 +50,9 @@
       padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer;
     }
     .btn:hover{ filter:brightness(1.1) }
+    /* MSTR frame area */
+    #mstr-frame { height:420px; display:flex; align-items:center; justify-content:center; }
+    .note{ background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.2); padding:10px 12px; border-radius:10px }
   </style>
 </head>
 <body>
@@ -72,6 +74,11 @@
           <h3>Fear & Greed (now)</h3>
           <div class="val" id="fgi">—</div>
           <div class="small muted" id="fgiLabel">—</div>
+        </div>
+        <div class="kpi">
+          <h3>USD/SEK</h3>
+          <div class="val" id="usdsek">—</div>
+          <div class="small muted">Source: frankfurter.app</div>
         </div>
         <div class="kpi">
           <h3>Risk Level</h3>
@@ -99,6 +106,25 @@
       <div class="small muted">Source: TradingView</div>
     </section>
 
+    <!-- MVRV Z-Score (optional, via Glassnode proxy) -->
+    <section class="card span-6">
+      <h3 style="margin-top:0">MVRV Z-Score (BTC)</h3>
+      <canvas id="mvrvChart"></canvas>
+      <div id="mvrvNote" class="small muted"></div>
+    </section>
+
+    <!-- MSTR NAV Premium (Basic) -->
+    <section class="card span-6">
+      <h3 style="margin-top:0">MSTR — NAV Premium (Basic)</h3>
+      <div id="mstr-frame" class="note">
+        <div class="small">
+          For the best data, open the official chart:
+          <a class="btn" href="https://strategytracker.com/mstr" target="_blank" rel="noopener">Open StrategyTracker ↗</a>
+        </div>
+      </div>
+      <div class="small muted">Source: strategytracker.com/mstr</div>
+    </section>
+
     <!-- Notes -->
     <section class="card span-12">
       <h3 style="margin-top:0">How risk is computed</h3>
@@ -111,7 +137,7 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, TradingView</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, StrategyTracker</footer>
 
   <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -125,10 +151,18 @@
       fgi: document.getElementById('fgi'),
       fgiLabel: document.getElementById('fgiLabel'),
       riskPill: document.getElementById('riskPill'),
+      usdsek: document.getElementById('usdsek'),
       tvWidget: document.getElementById('tv-widget'),
       reloadTvBtn: document.getElementById('reloadTv'),
+      mvrvNote: document.getElementById('mvrvNote'),
     };
+
+    // ===== CONFIG (optional): if you later add a Glassnode proxy URL, put it here
+    // Example: const GLASSNODE_PROXY_URL = "/.netlify/functions/glassnode-mvrv";
+    const GLASSNODE_PROXY_URL = "";
+
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
+    const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
 
     function setRisk(composite){
       let level='HIGH', cls='risk-high';
@@ -165,77 +199,93 @@
       return { current: parseInt(cur.value,10), series };
     }
 
-    // ===== F&G chart
-    function drawFgiChart(points){
+    async function fetchUsdSek(){
+      // Free, CORS-friendly
+      const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
+      if (!r.ok) throw new Error('USD/SEK API error');
+      const j = await r.json();
+      const rate = j.rates && j.rates.SEK ? j.rates.SEK : null;
+      els.usdsek.textContent = rate ? `${fmt2(rate)} SEK` : "—";
+      return rate;
+    }
+
+    // ===== Charts
+    function lineChart(canvasId, label, points, yTitle){
       if (!window.Chart) return;
-      const ctx = document.getElementById('fgiChart').getContext('2d');
+      const ctx = document.getElementById(canvasId).getContext('2d');
       new Chart(ctx,{
         type:'line',
         data:{
           labels: points.map(p => p.t.toLocaleDateString()),
-          datasets:[{ label:'Fear & Greed', data: points.map(p => p.v), tension:0.3, fill:false }]
+          datasets:[{ label, data: points.map(p => p.v), tension:0.3, fill:false }]
         },
         options:{
           responsive:true,
-          scales:{ y:{ beginAtZero:true, suggestedMax:100, title:{ display:true, text:'Index (0-100)' } } },
+          scales:{ y:{ beginAtZero:false, title:{ display:true, text:yTitle } } },
           plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } }
         }
       });
     }
 
-    // ===== TradingView with retry (handles occasional "infinite spinner")
-    function mountTradingView(attempt = 0){
-      // Clear previous instance
-      els.tvWidget.innerHTML = '';
+    function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)'); }
 
+    // ===== TradingView with retry
+    function mountTradingView(attempt = 0){
+      els.tvWidget.innerHTML = '';
       try{
         const s = document.createElement('script');
         s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
         s.async = true;
         s.innerHTML = JSON.stringify({
-          autosize: false,
-          width: "100%",
-          height: 420,
-          symbol: "CRYPTOCAP:BTC.D",
-          interval: "D",
-          timezone: "Europe/Stockholm",
-          theme: (matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? "dark" : "light",
-          style: "3",                 // line chart (clearer)
-          locale: "en",
-          withdateranges: true,
-          hide_side_toolbar: true,
-          hide_top_toolbar: false,
-          allow_symbol_change: false,
-          hide_legend: true,
-          studies: [],
-          backgroundColor: "transparent"
+          autosize:false, width:"100%", height:420,
+          symbol:"CRYPTOCAP:BTC.D", interval:"D",
+          timezone:"Europe/Stockholm",
+          theme:(matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? "dark" : "light",
+          style:"3", locale:"en", withdateranges:true,
+          hide_side_toolbar:true, hide_top_toolbar:false,
+          allow_symbol_change:false, hide_legend:true,
+          studies:[], backgroundColor:"transparent"
         });
-
         const wrap = document.createElement('div');
         wrap.className = "tradingview-widget-container";
         wrap.style.height = "420px";
         const cont = document.createElement('div');
         cont.className = "tradingview-widget-container__widget";
         cont.style.height = "100%";
-        wrap.appendChild(cont);
-        wrap.appendChild(s);
+        wrap.appendChild(cont); wrap.appendChild(s);
         els.tvWidget.appendChild(wrap);
 
-        // Verify after a short delay; if still spinner/sizing issue, retry
         setTimeout(() => {
           const iframe = els.tvWidget.querySelector('iframe');
-          const looksBroken = !iframe || iframe.clientHeight < 200 || iframe.clientWidth < 200;
-          if (looksBroken && attempt < 3){
-            mountTradingView(attempt + 1);
-          } else if (looksBroken && attempt >= 3){
-            // Fallback link if embed keeps failing
-            els.tvWidget.innerHTML =
-              '<div class="small muted">Chart failed to load. '+
-              '<a href="https://www.tradingview.com/chart?symbol=CRYPTOCAP%3ABTC.D" target="_blank" rel="noopener">Open in TradingView ↗</a></div>';
-          }
+          const broken = !iframe || iframe.clientHeight < 200 || iframe.clientWidth < 200;
+          if (broken && attempt < 3) mountTradingView(attempt+1);
+          if (broken && attempt >= 3)
+            els.tvWidget.innerHTML = '<div class="small muted">Chart failed to load. <a href="https://www.tradingview.com/chart?symbol=CRYPTOCAP%3ABTC.D" target="_blank" rel="noopener">Open in TradingView ↗</a></div>';
         }, 2500);
       }catch(e){
-        if (attempt < 3) setTimeout(() => mountTradingView(attempt + 1), 1000);
+        if (attempt < 3) setTimeout(() => mountTradingView(attempt+1), 1000);
+      }
+    }
+
+    // ===== MVRV Z-Score (optional)
+    async function fetchMvrvZ(){
+      // Requires a serverless proxy that calls Glassnode with your API key,
+      // returning an array of { t: ISODate, v: number }.
+      if (!GLASSNODE_PROXY_URL){
+        els.mvrvNote.textContent = "To show this chart, add a Glassnode API proxy URL in the code (GLASSNODE_PROXY_URL). I can give you a one-file Netlify Function to enable it.";
+        return null;
+      }
+      try{
+        const r = await fetch(GLASSNODE_PROXY_URL);
+        if (!r.ok) throw new Error('Proxy error');
+        const items = await r.json(); // expecting [{t: "2025-01-01", v: 1.23}, ...]
+        const series = items.map(d => ({ t: new Date(d.t), v: Number(d.v) })).filter(d => isFinite(d.v));
+        lineChart('mvrvChart','MVRV Z-Score',series,'Z-score');
+        els.mvrvNote.textContent = "";
+        return true;
+      }catch(e){
+        els.mvrvNote.textContent = "Could not load MVRV Z-Score from proxy.";
+        return null;
       }
     }
 
@@ -250,18 +300,21 @@
         const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
         setRisk(computeRisk(fgi.current, bin.chgPct));
         drawFgiChart(fgi.series);
-        // mount TV after paint so it sizes nicely
         setTimeout(() => mountTradingView(0), 60);
-        els.updated.textContent = "Updated: " + new Date().toLocaleString();
       }catch(err){
         console.error(err);
         els.updated.textContent = "Some data failed to load. Try refresh.";
-        setTimeout(() => mountTradingView(0), 60); // still try to show dominance
+        setTimeout(() => mountTradingView(0), 60);
       }
+
+      // Fire and forget: extra indicators that don't affect KPIs
+      fetchUsdSek().catch(()=>{});
+      fetchMvrvZ(); // shows helper note if not configured
+
+      els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
     init();
 
-    // Manual reload for user
     if (els.reloadTvBtn){
       els.reloadTvBtn.addEventListener('click', () => mountTradingView(0));
     }
