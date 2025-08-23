@@ -7,19 +7,28 @@
   <meta name="description" content="Personal Bitcoin status & risk dashboard." />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
-    :root{ --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff; --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c; }
+    :root{
+      --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff; --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c;
+    }
     @media (prefers-color-scheme: light){
       :root{ --bg:#ffffff; --card:#f6f8fb; --text:#1b1f24; --muted:#5f6368; --accent:#1565c0; --good:#1e7d4f; --warn:#a17900; --bad:#b3392d; }
     }
     *{ box-sizing:border-box }
-    body{ margin:0; background:var(--bg); color:var(--text);
-      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial }
-    header{ padding:20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
-      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap }
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    header{
+      padding:20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    }
     .brand{ font-weight:700; letter-spacing:0.2px }
-    .grid{ display:grid; gap:16px; padding:16px; grid-template-columns:1fr; max-width:1200px; margin:0 auto }
+    .grid{ display:grid; gap:16px; padding:16px; grid-template-columns:1fr; max-width:1200px; margin:0 auto; }
     @media (min-width:900px){ .grid{ grid-template-columns:repeat(12,1fr) } }
-    .card{ background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.2) }
+    .card{
+      background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    }
     .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
     .kpis{ display:flex; gap:16px; flex-wrap:wrap }
     .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.03); border-radius:12px; padding:12px 14px }
@@ -32,6 +41,9 @@
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
     .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
+
+    /* Give TradingView space so it doesn't squash */
+    #tv-widget { height: 420px; }
   </style>
 </head>
 <body>
@@ -41,6 +53,7 @@
   </header>
 
   <main class="grid">
+    <!-- KPIs -->
     <section class="card span-12">
       <div class="kpis">
         <div class="kpi">
@@ -61,36 +74,43 @@
       </div>
     </section>
 
+    <!-- Fear & Greed chart -->
     <section class="card span-6">
       <h3 style="margin-top:0">Fear & Greed — last 30 days</h3>
       <canvas id="fgiChart"></canvas>
       <div class="small muted">Source: Alternative.me</div>
     </section>
 
+    <!-- BTC Dominance chart (TradingView) -->
     <section class="card span-6">
       <h3 style="margin-top:0">Bitcoin Dominance (BTC.D)</h3>
       <div id="tv-widget"></div>
       <div class="small muted">Source: TradingView</div>
     </section>
 
+    <!-- Notes -->
     <section class="card span-12">
       <h3 style="margin-top:0">How risk is computed</h3>
+      <p class="small muted">
+        Risk is a simple heuristic: F&G (0–100) + scaled absolute 24h % change. It’s for your personal use only, not financial advice.
+      </p>
       <ul class="small">
         <li><b>Low</b>: composite &lt; 40</li>
         <li><b>Medium</b>: 40–65</li>
         <li><b>High</b>: &gt; 65</li>
       </ul>
-      <div id="debug" class="small muted"></div>
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, TradingView</footer>
+  <footer>
+    Built for personal use • Data: Binance, Alternative.me, TradingView
+  </footer>
 
   <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <script>
-    // ==== helpers & elements
+    // ===== Elements & helpers
     const els = {
       updated: document.getElementById('updated'),
       price: document.getElementById('price'),
@@ -98,12 +118,7 @@
       fgi: document.getElementById('fgi'),
       fgiLabel: document.getElementById('fgiLabel'),
       riskPill: document.getElementById('riskPill'),
-      debug: document.getElementById('debug'),
     };
-    const debug = (msg) => { if (els.debug) els.debug.textContent = msg; };
-    window.addEventListener('error', e => debug('Error: ' + (e.message || 'unknown')));
-    window.addEventListener('unhandledrejection', e => debug('Promise error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
-
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
 
     function setRisk(composite){
@@ -111,18 +126,20 @@
       if (composite < 40){ level='LOW'; cls='risk-low'; }
       else if (composite <= 65){ level='MEDIUM'; cls='risk-medium'; }
       els.riskPill.className = 'risk-pill ' + cls;
-      els.riskPill.textContent = `${level} (${isFinite(composite)?Math.round(composite):'—'})`;
+      els.riskPill.textContent = `${level} (${Math.round(composite)})`;
     }
 
+    // ===== Data fetch
     async function fetchBinance(){
       const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
       if (!r.ok) throw new Error('Binance API error');
       const j = await r.json();
-      const last = j.lastPrice, chgPct = parseFloat(j.priceChangePercent);
+      const last = j.lastPrice;
+      const chgPct = parseFloat(j.priceChangePercent);
       els.price.textContent = fmtUSD(last);
-      els.priceChange.textContent = `${isFinite(chgPct)?chgPct.toFixed(2):'—'}% (24h)`;
+      els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
       els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
-      return { last: parseFloat(last), chgPct: isFinite(chgPct)?chgPct:0 };
+      return { last: parseFloat(last), chgPct };
     }
 
     async function fetchFearGreed(limit=30){
@@ -139,69 +156,85 @@
       return { current: parseInt(cur.value,10), series };
     }
 
+    // ===== Charts
     function drawFgiChart(points){
-      if (!window.Chart){ debug('Chart.js missing'); return; }
+      if (!window.Chart) return;
       const ctx = document.getElementById('fgiChart').getContext('2d');
       new Chart(ctx,{
         type:'line',
-        data:{ labels: points.map(p=>p.t.toLocaleDateString()),
-          datasets:[{ label:'Fear & Greed', data: points.map(p=>p.v), tension:0.3, fill:false }] },
-        options:{ responsive:true, scales:{ y:{ beginAtZero:true, suggestedMax:100, title:{display:true,text:'Index (0-100)'} } },
-          plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} } }
+        data:{
+          labels: points.map(p => p.t.toLocaleDateString()),
+          datasets:[{ label:'Fear & Greed', data: points.map(p => p.v), tension:0.3, fill:false }]
+        },
+        options:{
+          responsive:true,
+          scales:{ y:{ beginAtZero:true, suggestedMax:100, title:{ display:true, text:'Index (0-100)' } } },
+          plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } }
+        }
       });
-      debug('Chart OK');
     }
 
+    // Clear + legible TradingView dominance chart
     function mountTradingView(){
-      const s = document.createElement('script');
-      s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-      s.async = true;
-      s.innerHTML = JSON.stringify({
-        autosize:true, symbol:"CRYPTOCAP:BTC.D", interval:"D",
-        timezone:"Europe/Stockholm",
-        theme:(matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? "dark":"light",
-        style:"1", locale:"en", hide_top_toolbar:false, hide_legend:false,
-        allow_symbol_change:false, studies:[], backgroundColor:"transparent"
-      });
-      const wrap = document.createElement('div');
-      wrap.className = "tradingview-widget-container";
-      const cont = document.createElement('div');
-      cont.className = "tradingview-widget-container__widget";
-      wrap.appendChild(cont); wrap.appendChild(s);
-      document.getElementById('tv-widget').appendChild(wrap);
-      debug('TV mounted');
+      try{
+        const s = document.createElement('script');
+        s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+        s.async = true;
+        s.innerHTML = JSON.stringify({
+          autosize: false,            // respect our fixed height
+          width: "100%",
+          height: 420,
+          symbol: "CRYPTOCAP:BTC.D",
+          interval: "D",
+          timezone: "Europe/Stockholm",
+          theme: (matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? "dark" : "light",
+          style: "3",                 // 3 = line chart
+          locale: "en",
+          withdateranges: true,
+          hide_side_toolbar: true,
+          hide_top_toolbar: false,
+          allow_symbol_change: false,
+          hide_legend: true,
+          studies: [],
+          backgroundColor: "transparent"
+        });
+        const wrap = document.createElement('div');
+        wrap.className = "tradingview-widget-container";
+        wrap.style.height = "420px";
+        const cont = document.createElement('div');
+        cont.className = "tradingview-widget-container__widget";
+        cont.style.height = "100%";
+        wrap.appendChild(cont);
+        wrap.appendChild(s);
+        document.getElementById('tv-widget').appendChild(wrap);
+      }catch(e){
+        const note = document.createElement('div');
+        note.className = "small muted";
+        note.textContent = "TradingView widget failed to load.";
+        document.getElementById('tv-widget').appendChild(note);
+      }
     }
 
     function computeRisk(fgi, chgPct){
-      const vol = Math.min(Math.abs(chgPct||0), 10) * 10; // 0–100
+      const vol = Math.min(Math.abs(chgPct || 0), 10) * 10; // 0–100
       return 0.7 * fgi + 0.3 * vol;
     }
 
+    // ===== Init
     async function init(){
-      let bin, fgi;
       try{
-        [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
-      }catch(e){
-        els.updated.textContent = "Some data failed to load. Try refresh.";
-        debug('Fetch failed: ' + e.message);
-        // still try to show TV
+        const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
+        setRisk(computeRisk(fgi.current, bin.chgPct));
+        drawFgiChart(fgi.series);
+        // mount TV after paint so it sizes nicely
         setTimeout(mountTradingView, 50);
-        return;
+        els.updated.textContent = "Updated: " + new Date().toLocaleString();
+      }catch(err){
+        console.error(err);
+        els.updated.textContent = "Some data failed to load. Try refresh.";
+        setTimeout(mountTradingView, 50); // still try to show dominance
       }
-
-      // Always compute & show risk
-      try{
-        const composite = computeRisk(fgi.current, bin.chgPct);
-        setRisk(composite);
-      }catch(e){ debug('Risk failed: ' + e.message); }
-
-      // Visuals (never block the rest)
-      try{ drawFgiChart(fgi.series); }catch(e){ debug('Chart draw failed'); }
-      setTimeout(mountTradingView, 50);
-
-      els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
-
     init();
   </script>
 </body>
