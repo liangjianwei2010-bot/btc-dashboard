@@ -112,7 +112,8 @@
   </footer>
 
   <!-- Chart.js (CDN) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-8H5uWqvR8mS8C4sV7qDNx4xJp8A9Wg9V3v9d3gKzq9S7r3+q2cL8i7u3r9M4z8xY" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 
   <script>
     const els = {
@@ -230,21 +231,41 @@
       return 0.7 * fgi + 0.3 * volComponent;
     }
 
-    async function init(){
-      try{
-        const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
-        drawFgiChart(fgi.series);
-        mountTradingView();
-        const composite = computeRisk(fgi.current, bin.chgPct);
-        setRisk(composite);
-        els.updated.textContent = "Updated: " + new Date().toLocaleString();
-      }catch(err){
-        console.error(err);
-        els.updated.textContent = "Some data failed to load. Try refresh.";
-      }
-    }
+<script>
+  async function init(){
+    try{
+      const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
 
-    init();
+      // Compute risk first so a chart issue can't block it
+      const composite = computeRisk(fgi.current, bin.chgPct);
+      setRisk(composite);
+
+      // Mount TradingView regardless of chart status
+      try { mountTradingView(); } catch(e){ console.warn('TV widget failed', e); }
+
+      // Draw F&G chart only if Chart.js loaded
+      try {
+        if (window.Chart) {
+          drawFgiChart(fgi.series);
+        } else {
+          console.warn('Chart.js not available; skipping chart');
+        }
+      } catch (e) {
+        console.warn('Failed to draw chart', e);
+      }
+
+      els.updated.textContent = "Updated: " + new Date().toLocaleString();
+    }catch(err){
+      console.error(err);
+      els.updated.textContent = "Some data failed to load. Try refresh.";
+      // Still try TradingView even if other data failed
+      try { mountTradingView(); } catch(e){}
+    }
+  }
+  init();
+</script>
+
   </script>
 </body>
 </html>
+
