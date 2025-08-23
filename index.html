@@ -7,30 +7,20 @@
   <meta name="description" content="Personal Bitcoin status & risk dashboard." />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
-    :root{
-      --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff;
-      --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c;
-    }
+    :root{ --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff; --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c; }
     @media (prefers-color-scheme: light){
       :root{ --bg:#ffffff; --card:#f6f8fb; --text:#1b1f24; --muted:#5f6368; --accent:#1565c0; --good:#1e7d4f; --warn:#a17900; --bad:#b3392d; }
     }
     *{ box-sizing:border-box }
-    body{
-      margin:0; background:var(--bg); color:var(--text);
-      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji";
-    }
-    header{
-      padding:20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
-      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;
-    }
+    body{ margin:0; background:var(--bg); color:var(--text);
+      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial }
+    header{ padding:20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap }
     .brand{ font-weight:700; letter-spacing:0.2px }
-    .grid{ display:grid; gap:16px; padding:16px; grid-template-columns:1fr; max-width:1200px; margin:0 auto; }
+    .grid{ display:grid; gap:16px; padding:16px; grid-template-columns:1fr; max-width:1200px; margin:0 auto }
     @media (min-width:900px){ .grid{ grid-template-columns:repeat(12,1fr) } }
-    .card{
-      background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px;
-      box-shadow:0 10px 30px rgba(0,0,0,0.2);
-    }
-    .span-4{ grid-column:span 4 } .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
+    .card{ background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.2) }
+    .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
     .kpis{ display:flex; gap:16px; flex-wrap:wrap }
     .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.03); border-radius:12px; padding:12px 14px }
     .kpi h3{ margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.3px }
@@ -42,17 +32,10 @@
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
     .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
-
-    /* Spaces for embeds */
-    #tv-widget { height: 420px; }
-    #bm-mvrv { min-height: 420px; }
+    #tv-widget{ height:420px }
     .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
-    .btn{
-      background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2);
-      padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer;
-    }
+    .btn{ background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2); padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer }
     .btn:hover{ filter:brightness(1.1) }
-    .note{ background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.2); padding:10px 12px; border-radius:10px }
   </style>
 </head>
 <body>
@@ -95,7 +78,7 @@
       <div class="small muted">Source: Alternative.me</div>
     </section>
 
-    <!-- BTC Dominance chart (TradingView) -->
+    <!-- BTC Dominance -->
     <section class="card span-6">
       <h3 style="margin-top:0">Bitcoin Dominance (BTC.D)</h3>
       <div id="tv-widget"></div>
@@ -106,21 +89,17 @@
       <div class="small muted">Source: TradingView</div>
     </section>
 
-    <!-- MVRV Z-Score (Bitcoin Magazine Pro) -->
+    <!-- MVRV Z-Score (Coin Metrics Community API) -->
     <section class="card span-12">
-      <h3 style="margin-top:0">MVRV Z-Score — Bitcoin Magazine Pro</h3>
-      <div id="bm-mvrv" class="note">Loading MVRV chart…</div>
-      <div class="actions">
-        <button id="reloadMvrv" class="btn">Reload MVRV</button>
-        <a class="btn" href="https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/" target="_blank" rel="noopener">Open on Bitcoin Magazine Pro ↗</a>
-      </div>
-      <div class="small muted">Source: bitcoinmagazinepro.com</div>
+      <h3 style="margin-top:0">MVRV Z-Score — Coin Metrics</h3>
+      <canvas id="mvrvChart"></canvas>
+      <div class="small muted">Source: Coin Metrics Community API (metric <code>CapMVRVZ</code>). Free for non-commercial use.</div>
     </section>
 
     <!-- Notes -->
     <section class="card span-12">
       <h3 style="margin-top:0">How risk is computed</h3>
-      <p class="small muted">Risk is a simple heuristic: F&G (0–100) + scaled absolute 24h % change. It’s for your personal use only, not financial advice.</p>
+      <p class="small muted">Risk = 70% Fear &amp; Greed (0–100) + 30% of |24h % change| clamped at 10% (scaled to 0–100). Personal use only; not financial advice.</p>
       <ul class="small">
         <li><b>Low</b>: composite &lt; 40</li>
         <li><b>Medium</b>: 40–65</li>
@@ -129,13 +108,12 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Bitcoin Magazine Pro</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Coin Metrics</footer>
 
-  <!-- Chart.js (CDN) -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <script>
-    // ===== Elements & helpers
     const els = {
       updated: document.getElementById('updated'),
       price: document.getElementById('price'),
@@ -146,22 +124,11 @@
       usdsek: document.getElementById('usdsek'),
       tvWidget: document.getElementById('tv-widget'),
       reloadTvBtn: document.getElementById('reloadTv'),
-      bmMvrv: document.getElementById('bm-mvrv'),
-      reloadMvrvBtn: document.getElementById('reloadMvrv'),
     };
-
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
     const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
 
-    function setRisk(composite){
-      let level='HIGH', cls='risk-high';
-      if (composite < 40){ level='LOW'; cls='risk-low'; }
-      else if (composite <= 65){ level='MEDIUM'; cls='risk-medium'; }
-      els.riskPill.className = 'risk-pill ' + cls;
-      els.riskPill.textContent = `${level} (${Math.round(composite)})`;
-    }
-
-    // ===== Data fetch
+    /* ---------- KPIs ---------- */
     async function fetchBinance(){
       const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
       if (!r.ok) throw new Error('Binance API error');
@@ -192,30 +159,60 @@
       const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
       if (!r.ok) throw new Error('USD/SEK API error');
       const j = await r.json();
-      const rate = j.rates && j.rates.SEK ? j.rates.SEK : null;
+      const rate = j.rates?.SEK ?? null;
       els.usdsek.textContent = rate ? `${fmt2(rate)} SEK` : "—";
       return rate;
     }
 
-    // ===== Charts
-    function drawFgiChart(points){
+    function computeRisk(fgi, chgPct){
+      const vol = Math.min(Math.abs(chgPct || 0), 10) * 10; // 0–100
+      return 0.7 * fgi + 0.3 * vol;
+    }
+
+    /* ---------- Charts ---------- */
+    function lineChart(canvasId, label, points, yTitle, beginAtZero=false){
       if (!window.Chart) return;
-      const ctx = document.getElementById('fgiChart').getContext('2d');
+      const ctx = document.getElementById(canvasId).getContext('2d');
       new Chart(ctx,{
         type:'line',
-        data:{
-          labels: points.map(p => p.t.toLocaleDateString()),
-          datasets:[{ label:'Fear & Greed', data: points.map(p => p.v), tension:0.3, fill:false }]
-        },
+        data:{ labels: points.map(p => p.t.toLocaleDateString()),
+          datasets:[{ label, data: points.map(p => p.v), tension:0.3, fill:false }] },
         options:{
           responsive:true,
-          scales:{ y:{ beginAtZero:true, suggestedMax:100, title:{ display:true, text:'Index (0-100)' } } },
+          scales:{ y:{ beginAtZero, title:{ display:true, text:yTitle } } },
           plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } }
         }
       });
     }
+    function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)', true); }
 
-    // ===== TradingView with retry
+    // Coin Metrics MVRV Z-Score (CapMVRVZ) — community API
+    async function fetchMvrvZ(days=1095){ // ~3 years
+      const start = new Date(Date.now() - days*24*60*60*1000).toISOString().slice(0,10);
+      let url = `https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=CapMVRVZ&start_time=${start}&page_size=10000`;
+      const rows = [];
+      // handle pagination just in case
+      while (url){
+        const r = await fetch(url);
+        if(!r.ok) throw new Error('Coin Metrics API error');
+        const j = await r.json();
+        const data = j.data || j.result || [];
+        for (const d of data){
+          const t = new Date(d.time || d.timestamp || d.date || d.t);
+          const v = parseFloat(d.CapMVRVZ || d.capmvrvz || d.v);
+          if (isFinite(v)) rows.push({ t, v });
+        }
+        url = j.next_page_url || null;
+      }
+      rows.sort((a,b)=>a.t-b.t);
+      return rows;
+    }
+
+    function drawMvrvChart(points){
+      lineChart('mvrvChart','MVRV Z-Score', points, 'Z-Score', false);
+    }
+
+    /* ---------- TradingView (retry) ---------- */
     function mountTradingView(attempt = 0){
       els.tvWidget.innerHTML = '';
       try{
@@ -253,53 +250,20 @@
       }
     }
 
-    // ===== Bitcoin Magazine Pro MVRV iframe (with retry + fallback)
-    const BM_URL = "https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/";
-    function mountBmMvrv(attempt = 0){
-      els.bmMvrv.innerHTML = '<div class="small muted">Loading…</div>';
-      try{
-        const frame = document.createElement('iframe');
-        frame.src = BM_URL;
-        frame.width = "100%";
-        frame.height = "420";
-        frame.style.border = "0";
-        frame.loading = "lazy";
-        frame.referrerPolicy = "no-referrer-when-downgrade";
-
-        els.bmMvrv.innerHTML = "";
-        els.bmMvrv.appendChild(frame);
-
-        // verify after a short delay
-        setTimeout(() => {
-          const broken = !frame || frame.clientHeight < 200 || frame.clientWidth < 200;
-          // if the site blocks embedding with X-Frame-Options, it may remain blank; fall back after a few tries
-          if (broken && attempt < 2) mountBmMvrv(attempt+1);
-          if (broken && attempt >= 2){
-            els.bmMvrv.innerHTML =
-              '<div class="note small">This site may block embedding. '+
-              '<a class="btn" href="'+BM_URL+'" target="_blank" rel="noopener">Open on Bitcoin Magazine Pro ↗</a></div>';
-          }
-        }, 2500);
-      }catch(e){
-        if (attempt < 2) setTimeout(() => mountBmMvrv(attempt+1), 800);
-        else {
-          els.bmMvrv.innerHTML =
-            '<div class="note small">Could not load embed. '+
-            '<a class="btn" href="'+BM_URL+'" target="_blank" rel="noopener">Open on Bitcoin Magazine Pro ↗</a></div>';
-        }
-      }
-    }
-
-    function computeRisk(fgi, chgPct){
-      const vol = Math.min(Math.abs(chgPct || 0), 10) * 10; // 0–100
-      return 0.7 * fgi + 0.3 * vol;
-    }
-
-    // ===== Init
+    /* ---------- Init ---------- */
     async function init(){
       try{
         const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
-        setRisk(computeRisk(fgi.current, bin.chgPct));
+        // KPIs + FGI Chart
+        const composite = computeRisk(fgi.current, bin.chgPct);
+        els.riskPill.classList.remove('risk-low','risk-medium','risk-high'); // clean slate
+        (function setRisk(){
+          let level='HIGH', cls='risk-high';
+          if (composite < 40){ level='LOW'; cls='risk-low'; }
+          else if (composite <= 65){ level='MEDIUM'; cls='risk-medium'; }
+          els.riskPill.className = 'risk-pill ' + cls;
+          els.riskPill.textContent = `${level} (${Math.round(composite)})`;
+        })();
         drawFgiChart(fgi.series);
         setTimeout(() => mountTradingView(0), 60);
       }catch(err){
@@ -307,15 +271,25 @@
         els.updated.textContent = "Some data failed to load. Try refresh.";
         setTimeout(() => mountTradingView(0), 60);
       }
+
+      // Not critical for KPIs:
       fetchUsdSek().catch(()=>{});
-      setTimeout(() => mountBmMvrv(0), 100);  // mount after paint
+      // MVRV from Coin Metrics
+      try{
+        const mvrv = await fetchMvrvZ(1095);
+        drawMvrvChart(mvrv);
+      }catch(e){
+        console.warn('MVRV failed:', e);
+        const ctx = document.getElementById('mvrvChart').getContext('2d');
+        ctx.font = '12px system-ui'; ctx.fillStyle = '#9aa0a6';
+        ctx.fillText('Could not load MVRV Z-Score (Coin Metrics). Try refresh.', 10, 20);
+      }
+
       els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
     init();
 
-    // Manual reload buttons
-    if (els.reloadTvBtn){ els.reloadTvBtn.addEventListener('click', () => mountTradingView(0)); }
-    if (els.reloadMvrvBtn){ els.reloadMvrvBtn.addEventListener('click', () => mountBmMvrv(0)); }
+    if (els.reloadTvBtn) els.reloadTvBtn.addEventListener('click', () => mountTradingView(0));
   </script>
 </body>
 </html>
