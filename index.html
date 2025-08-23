@@ -114,7 +114,6 @@
   <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-
   <script>
     const els = {
       updated: document.getElementById('updated'),
@@ -140,7 +139,6 @@
     }
 
     async function fetchBinance(){
-      // 24hr ticker for BTCUSDT (no API key required)
       const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
       if (!r.ok) throw new Error('Binance API error');
       const j = await r.json();
@@ -154,16 +152,12 @@
     }
 
     async function fetchFearGreed(limit=30){
-      // Alternative.me Fear & Greed API (public)
-      // docs: https://api.alternative.me/fng/
       const r = await fetch(`https://api.alternative.me/fng/?limit=${limit}&format=json`);
       if (!r.ok) throw new Error('F&G API error');
       const { data } = await r.json();
-      // data array is newest first
       const cur = data[0];
       els.fgi.textContent = cur.value;
       els.fgiLabel.textContent = cur.value_classification;
-      // build chart data (reverse to oldest->newest)
       const points = data.slice().reverse().map(d => ({
         t: new Date(parseInt(d.timestamp,10)*1000),
         v: parseInt(d.value,10)
@@ -198,7 +192,6 @@
     }
 
     function mountTradingView(){
-      // Lightweight TradingView Widget for BTC Dominance
       const s = document.createElement('script');
       s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
       s.async = true;
@@ -226,46 +219,36 @@
     }
 
     function computeRisk(fgi, chgPct){
-      // Simple composite: 70% weight to FGI, 30% to magnitude of 24h % change scaled to 0-100 by clamping at 10%
       const volComponent = Math.min(Math.abs(chgPct), 10) * 10; // 0–100
       return 0.7 * fgi + 0.3 * volComponent;
     }
 
-<script>
-  async function init(){
-    try{
-      const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
+    async function init(){
+      try{
+        const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
+        const composite = computeRisk(fgi.current, bin.chgPct);
+        setRisk(composite);
 
-      // Compute risk first so a chart issue can't block it
-      const composite = computeRisk(fgi.current, bin.chgPct);
-      setRisk(composite);
+        try { mountTradingView(); } catch(e){ console.warn('TV widget failed', e); }
 
-      // Mount TradingView regardless of chart status
-      try { mountTradingView(); } catch(e){ console.warn('TV widget failed', e); }
-
-      // Draw F&G chart only if Chart.js loaded
-      try {
-        if (window.Chart) {
-          drawFgiChart(fgi.series);
-        } else {
-          console.warn('Chart.js not available; skipping chart');
+        try {
+          if (window.Chart) {
+            drawFgiChart(fgi.series);
+          } else {
+            console.warn('Chart.js not available; skipping chart');
+          }
+        } catch (e) {
+          console.warn('Failed to draw chart', e);
         }
-      } catch (e) {
-        console.warn('Failed to draw chart', e);
+
+        els.updated.textContent = "Updated: " + new Date().toLocaleString();
+      }catch(err){
+        console.error(err);
+        els.updated.textContent = "Some data failed to load. Try refresh.";
+        try { mountTradingView(); } catch(e){}
       }
-
-      els.updated.textContent = "Updated: " + new Date().toLocaleString();
-    }catch(err){
-      console.error(err);
-      els.updated.textContent = "Some data failed to load. Try refresh.";
-      // Still try TradingView even if other data failed
-      try { mountTradingView(); } catch(e){}
     }
-  }
-  init();
-</script>
-
+    init();
   </script>
 </body>
 </html>
-
