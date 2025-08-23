@@ -89,13 +89,6 @@
       <div class="small muted">Source: TradingView</div>
     </section>
 
-    <!-- MVRV Z-Score -->
-    <section class="card span-12">
-      <h3 style="margin-top:0">MVRV Z-Score (computed) — Coin Metrics via Netlify</h3>
-      <canvas id="mvrvChart"></canvas>
-      <div class="small muted">Source: Coin Metrics Community (CapMrktCurUSD, CapRealUSD) via your Netlify function. Z = (MC − RC) / σ(MC).</div>
-    </section>
-
     <!-- Notes -->
     <section class="card span-12">
       <h3 style="margin-top:0">How risk is computed</h3>
@@ -108,16 +101,12 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Coin Metrics (community)</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView</footer>
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <script>
-    /* ======= SET YOUR NETLIFY FUNCTION URL HERE ======= */
-    const CM_PROXY_URL = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv";
-    /* ================================================== */
-
     const els = {
       updated: document.getElementById('updated'),
       price: document.getElementById('price'),
@@ -190,16 +179,6 @@
     }
     function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)', true); }
 
-    // MVRV via your Netlify proxy (computed server-side)
-    async function fetchMvrvZ(days=3650){
-      const url = `${CM_PROXY_URL}?days=${days}`;
-      const r = await fetch(url);
-      if (!r.ok) throw new Error('MVRV proxy error');
-      const arr = await r.json(); // [{t:"YYYY-MM-DD", v:number}]
-      return arr.map(d => ({ t: new Date(d.t), v: Number(d.v) })).filter(d => isFinite(d.v));
-    }
-    function drawMvrvChart(points){ lineChart('mvrvChart','MVRV Z-Score', points, 'Z-Score', false); }
-
     /* ---------- TradingView (retry) ---------- */
     function mountTradingView(attempt = 0){
       els.tvWidget.innerHTML = '';
@@ -257,17 +236,6 @@
       }
 
       fetchUsdSek().catch(()=>{});
-
-      // MVRV (use large history for stable sigma)
-      try{
-        const mvrv = await fetchMvrvZ(3650);
-        drawMvrvChart(mvrv);
-      }catch(e){
-        console.warn('MVRV failed:', e);
-        const ctx = document.getElementById('mvrvChart').getContext('2d');
-        ctx.font = '12px system-ui'; ctx.fillStyle = '#9aa0a6';
-        ctx.fillText('MVRV Z-Score unavailable. Check Netlify function.', 10, 20);
-      }
 
       els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
