@@ -8,47 +8,33 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
     :root{
-      --bg: #0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff; --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c;
+      --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff; --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c;
     }
     @media (prefers-color-scheme: light){
       :root{ --bg:#ffffff; --card:#f6f8fb; --text:#1b1f24; --muted:#5f6368; --accent:#1565c0; --good:#1e7d4f; --warn:#a17900; --bad:#b3392d; }
     }
     *{ box-sizing: border-box }
-    body{
-      margin:0; background:var(--bg); color:var(--text);
-      font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
-    }
-    header{
-      padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
-      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;
-    }
+    body{ margin:0; background:var(--bg); color:var(--text);
+      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji"; }
+    header{ padding:20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
     .brand{ font-weight:700; letter-spacing:0.2px }
-    .grid{ display:grid; gap:16px; padding:16px; grid-template-columns: 1fr; max-width: 1200px; margin:0 auto; }
-    @media (min-width: 900px){ .grid{ grid-template-columns: repeat(12, 1fr) } }
-    .card{
-      background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    }
-    .span-4{ grid-column: span 4 }
-    .span-6{ grid-column: span 6 }
-    .span-8{ grid-column: span 8 }
-    .span-12{ grid-column: span 12 }
+    .grid{ display:grid; gap:16px; padding:16px; grid-template-columns:1fr; max-width:1200px; margin:0 auto; }
+    @media (min-width:900px){ .grid{ grid-template-columns:repeat(12,1fr) } }
+    .card{ background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+    .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
     .kpis{ display:flex; gap:16px; flex-wrap:wrap }
-    .kpi{ flex:1 1 160px; background: rgba(255,255,255,0.03); border-radius:12px; padding:12px 14px }
+    .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.03); border-radius:12px; padding:12px 14px }
     .kpi h3{ margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.3px }
     .kpi .val{ font-size:22px; font-weight:700 }
-    .chg.up{ color: var(--good) } .chg.down{ color: var(--bad) }
-    .risk-pill{
-      display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px
-    }
+    .chg.up{ color:var(--good) } .chg.down{ color:var(--bad) }
+    .risk-pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px }
     .risk-low{ background:rgba(39,174,96,0.15); color:var(--good); border:1px solid rgba(39,174,96,0.35) }
     .risk-medium{ background:rgba(241,196,15,0.15); color:var(--warn); border:1px solid rgba(241,196,15,0.35) }
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
-    .muted{ color: var(--muted) }
-    footer{ padding: 24px 16px; text-align:center; color: var(--muted) }
-    a{ color: var(--accent); text-decoration: none }
-    .small{ font-size: 12px }
-    canvas{ width:100%; height:300px }
+    .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
+    a{ color:var(--accent); text-decoration:none } canvas{ width:100%; height:300px }
   </style>
 </head>
 <body>
@@ -58,7 +44,6 @@
   </header>
 
   <main class="grid">
-    <!-- KPIs -->
     <section class="card span-12">
       <div class="kpis">
         <div class="kpi">
@@ -79,37 +64,31 @@
       </div>
     </section>
 
-    <!-- Fear & Greed chart -->
     <section class="card span-6">
       <h3 style="margin-top:0">Fear & Greed — last 30 days</h3>
       <canvas id="fgiChart"></canvas>
       <div class="small muted">Source: Alternative.me</div>
     </section>
 
-    <!-- BTC Dominance chart (TradingView) -->
     <section class="card span-6">
       <h3 style="margin-top:0">Bitcoin Dominance (BTC.D)</h3>
       <div id="tv-widget"></div>
       <div class="small muted">Source: TradingView</div>
     </section>
 
-    <!-- Notes -->
     <section class="card span-12">
       <h3 style="margin-top:0">How risk is computed</h3>
-      <p class="small muted">
-        Risk is a simple heuristic: F&G (0–100) + scaled absolute 24h % change. It’s for your personal use only, not financial advice.
-      </p>
+      <p class="small muted">Risk is a simple heuristic: F&G (0–100) + scaled absolute 24h % change. It’s for your personal use only, not financial advice.</p>
       <ul class="small">
         <li><b>Low</b>: composite &lt; 40</li>
         <li><b>Medium</b>: 40–65</li>
         <li><b>High</b>: &gt; 65</li>
       </ul>
+      <div id="debug" class="small muted"></div>
     </section>
   </main>
 
-  <footer>
-    Built for personal use • Data: Binance, Alternative.me, TradingView
-  </footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, TradingView</footer>
 
   <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -122,12 +101,11 @@
       fgi: document.getElementById('fgi'),
       fgiLabel: document.getElementById('fgiLabel'),
       riskPill: document.getElementById('riskPill'),
-      riskNote: document.getElementById('riskNote'),
+      debug: document.getElementById('debug'),
     };
+    const log = (m) => { try { els.debug.textContent = m; } catch(_){} };
 
-    function fmtUSD(n){
-      return Number(n).toLocaleString(undefined, { style:'currency', currency:'USD', maximumFractionDigits: 2 });
-    }
+    const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
 
     function setRisk(composite){
       let level, cls;
@@ -145,9 +123,8 @@
       const last = j.lastPrice;
       const chgPct = parseFloat(j.priceChangePercent);
       els.price.textContent = fmtUSD(last);
-      const chgEl = els.priceChange;
-      chgEl.textContent = `${chgPct.toFixed(2)}% (24h)`;
-      chgEl.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
+      els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
+      els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
       return { last: parseFloat(last), chgPct };
     }
 
@@ -158,64 +135,52 @@
       const cur = data[0];
       els.fgi.textContent = cur.value;
       els.fgiLabel.textContent = cur.value_classification;
-      const points = data.slice().reverse().map(d => ({
+      const series = data.slice().reverse().map(d => ({
         t: new Date(parseInt(d.timestamp,10)*1000),
         v: parseInt(d.value,10)
       }));
-      return { current: parseInt(cur.value,10), label: cur.value_classification, series: points };
+      return { current: parseInt(cur.value,10), series };
     }
 
     function drawFgiChart(points){
+      if (!window.Chart) { log('Chart.js missing'); return; }
       const ctx = document.getElementById('fgiChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: {
+      new Chart(ctx,{
+        type:'line',
+        data:{
           labels: points.map(p => p.t.toLocaleDateString()),
-          datasets: [{
-            label: 'Fear & Greed',
-            data: points.map(p => p.v),
-            tension: 0.3,
-            fill: false
-          }]
+          datasets:[{ label:'Fear & Greed', data: points.map(p => p.v), tension:0.3, fill:false }]
         },
-        options: {
+        options:{
           responsive:true,
-          scales: {
-            y: { beginAtZero:true, suggestedMax:100, title:{ display:true, text:'Index (0-100)' } }
-          },
-          plugins: {
-            legend: { display:false },
-            tooltip: { mode: 'index', intersect: false }
-          }
+          scales:{ y:{ beginAtZero:true, suggestedMax:100, title:{ display:true, text:'Index (0-100)'} } },
+          plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } }
         }
       });
+      log('Chart OK');
     }
 
     function mountTradingView(){
-      const s = document.createElement('script');
-      s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-      s.async = true;
-      s.innerHTML = JSON.stringify({
-        autosize: true,
-        symbol: "CRYPTOCAP:BTC.D",
-        interval: "D",
-        timezone: "Europe/Stockholm",
-        theme: (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? "dark" : "light",
-        style: "1",
-        locale: "en",
-        hide_top_toolbar: false,
-        hide_legend: false,
-        allow_symbol_change: false,
-        studies: [],
-        backgroundColor: "transparent",
-      });
-      const wrap = document.createElement('div');
-      wrap.className = "tradingview-widget-container";
-      const cont = document.createElement('div');
-      cont.className = "tradingview-widget-container__widget";
-      wrap.appendChild(cont);
-      wrap.appendChild(s);
-      document.getElementById('tv-widget').appendChild(wrap);
+      try{
+        const s = document.createElement('script');
+        s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+        s.async = true;
+        s.innerHTML = JSON.stringify({
+          autosize:true, symbol:"CRYPTOCAP:BTC.D", interval:"D",
+          timezone:"Europe/Stockholm",
+          theme:(matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? "dark":"light",
+          style:"1", locale:"en", hide_top_toolbar:false, hide_legend:false,
+          allow_symbol_change:false, studies:[], backgroundColor:"transparent"
+        });
+        const wrap = document.createElement('div');
+        wrap.className = "tradingview-widget-container";
+        const cont = document.createElement('div');
+        cont.className = "tradingview-widget-container__widget";
+        wrap.appendChild(cont);
+        wrap.appendChild(s);
+        document.getElementById('tv-widget').appendChild(wrap);
+        log('TV mounted');
+      }catch(e){ log('TV failed'); }
     }
 
     function computeRisk(fgi, chgPct){
@@ -224,30 +189,28 @@
     }
 
     async function init(){
+      let bin = null, fgi = null;
       try{
-        const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
+        [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
+      }catch(e){
+        els.updated.textContent = "Some data failed to load. Try refresh.";
+        // still try to mount TV so at least one chart shows
+        mountTradingView();
+        return;
+      }
+
+      try {
         const composite = computeRisk(fgi.current, bin.chgPct);
         setRisk(composite);
+      }catch(e){ log('Risk calc failed'); }
 
-        try { mountTradingView(); } catch(e){ console.warn('TV widget failed', e); }
+      // Try both visuals, but don’t let failures kill the page
+      try { drawFgiChart(fgi.series); } catch(e){ log('Chart draw failed'); }
+      mountTradingView();
 
-        try {
-          if (window.Chart) {
-            drawFgiChart(fgi.series);
-          } else {
-            console.warn('Chart.js not available; skipping chart');
-          }
-        } catch (e) {
-          console.warn('Failed to draw chart', e);
-        }
-
-        els.updated.textContent = "Updated: " + new Date().toLocaleString();
-      }catch(err){
-        console.error(err);
-        els.updated.textContent = "Some data failed to load. Try refresh.";
-        try { mountTradingView(); } catch(e){}
-      }
+      els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
+
     init();
   </script>
 </body>
