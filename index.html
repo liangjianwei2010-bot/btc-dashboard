@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
     :root{
-      --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff; --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c;
+      --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff;
+      --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c;
     }
     @media (prefers-color-scheme: light){
       :root{ --bg:#ffffff; --card:#f6f8fb; --text:#1b1f24; --muted:#5f6368; --accent:#1565c0; --good:#1e7d4f; --warn:#a17900; --bad:#b3392d; }
@@ -42,8 +43,14 @@
     .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
 
-    /* Give TradingView space so it doesn't squash */
+    /* TradingView space + controls */
     #tv-widget { height: 420px; }
+    .tv-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
+    .btn{
+      background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2);
+      padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer;
+    }
+    .btn:hover{ filter:brightness(1.1) }
   </style>
 </head>
 <body>
@@ -85,15 +92,17 @@
     <section class="card span-6">
       <h3 style="margin-top:0">Bitcoin Dominance (BTC.D)</h3>
       <div id="tv-widget"></div>
+      <div class="tv-actions">
+        <button id="reloadTv" class="btn" title="Reload dominance chart">Reload chart</button>
+        <a class="btn" href="https://www.tradingview.com/chart?symbol=CRYPTOCAP%3ABTC.D" target="_blank" rel="noopener">Open in TradingView ↗</a>
+      </div>
       <div class="small muted">Source: TradingView</div>
     </section>
 
     <!-- Notes -->
     <section class="card span-12">
       <h3 style="margin-top:0">How risk is computed</h3>
-      <p class="small muted">
-        Risk is a simple heuristic: F&G (0–100) + scaled absolute 24h % change. It’s for your personal use only, not financial advice.
-      </p>
+      <p class="small muted">Risk is a simple heuristic: F&G (0–100) + scaled absolute 24h % change. It’s for your personal use only, not financial advice.</p>
       <ul class="small">
         <li><b>Low</b>: composite &lt; 40</li>
         <li><b>Medium</b>: 40–65</li>
@@ -102,9 +111,7 @@
     </section>
   </main>
 
-  <footer>
-    Built for personal use • Data: Binance, Alternative.me, TradingView
-  </footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, TradingView</footer>
 
   <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -118,6 +125,8 @@
       fgi: document.getElementById('fgi'),
       fgiLabel: document.getElementById('fgiLabel'),
       riskPill: document.getElementById('riskPill'),
+      tvWidget: document.getElementById('tv-widget'),
+      reloadTvBtn: document.getElementById('reloadTv'),
     };
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
 
@@ -156,7 +165,7 @@
       return { current: parseInt(cur.value,10), series };
     }
 
-    // ===== Charts
+    // ===== F&G chart
     function drawFgiChart(points){
       if (!window.Chart) return;
       const ctx = document.getElementById('fgiChart').getContext('2d');
@@ -174,21 +183,24 @@
       });
     }
 
-    // Clear + legible TradingView dominance chart
-    function mountTradingView(){
+    // ===== TradingView with retry (handles occasional "infinite spinner")
+    function mountTradingView(attempt = 0){
+      // Clear previous instance
+      els.tvWidget.innerHTML = '';
+
       try{
         const s = document.createElement('script');
         s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
         s.async = true;
         s.innerHTML = JSON.stringify({
-          autosize: false,            // respect our fixed height
+          autosize: false,
           width: "100%",
           height: 420,
           symbol: "CRYPTOCAP:BTC.D",
           interval: "D",
           timezone: "Europe/Stockholm",
           theme: (matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? "dark" : "light",
-          style: "3",                 // 3 = line chart
+          style: "3",                 // line chart (clearer)
           locale: "en",
           withdateranges: true,
           hide_side_toolbar: true,
@@ -198,6 +210,7 @@
           studies: [],
           backgroundColor: "transparent"
         });
+
         const wrap = document.createElement('div');
         wrap.className = "tradingview-widget-container";
         wrap.style.height = "420px";
@@ -206,12 +219,23 @@
         cont.style.height = "100%";
         wrap.appendChild(cont);
         wrap.appendChild(s);
-        document.getElementById('tv-widget').appendChild(wrap);
+        els.tvWidget.appendChild(wrap);
+
+        // Verify after a short delay; if still spinner/sizing issue, retry
+        setTimeout(() => {
+          const iframe = els.tvWidget.querySelector('iframe');
+          const looksBroken = !iframe || iframe.clientHeight < 200 || iframe.clientWidth < 200;
+          if (looksBroken && attempt < 3){
+            mountTradingView(attempt + 1);
+          } else if (looksBroken && attempt >= 3){
+            // Fallback link if embed keeps failing
+            els.tvWidget.innerHTML =
+              '<div class="small muted">Chart failed to load. '+
+              '<a href="https://www.tradingview.com/chart?symbol=CRYPTOCAP%3ABTC.D" target="_blank" rel="noopener">Open in TradingView ↗</a></div>';
+          }
+        }, 2500);
       }catch(e){
-        const note = document.createElement('div');
-        note.className = "small muted";
-        note.textContent = "TradingView widget failed to load.";
-        document.getElementById('tv-widget').appendChild(note);
+        if (attempt < 3) setTimeout(() => mountTradingView(attempt + 1), 1000);
       }
     }
 
@@ -227,15 +251,20 @@
         setRisk(computeRisk(fgi.current, bin.chgPct));
         drawFgiChart(fgi.series);
         // mount TV after paint so it sizes nicely
-        setTimeout(mountTradingView, 50);
+        setTimeout(() => mountTradingView(0), 60);
         els.updated.textContent = "Updated: " + new Date().toLocaleString();
       }catch(err){
         console.error(err);
         els.updated.textContent = "Some data failed to load. Try refresh.";
-        setTimeout(mountTradingView, 50); // still try to show dominance
+        setTimeout(() => mountTradingView(0), 60); // still try to show dominance
       }
     }
     init();
+
+    // Manual reload for user
+    if (els.reloadTvBtn){
+      els.reloadTvBtn.addEventListener('click', () => mountTradingView(0));
+    }
   </script>
 </body>
 </html>
