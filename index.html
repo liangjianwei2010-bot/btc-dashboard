@@ -42,16 +42,16 @@
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
     .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
-    /* Give TradingView space so it doesn't squash */
+
+    /* Spaces for embeds */
     #tv-widget { height: 420px; }
-    .tv-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
+    #bm-mvrv { min-height: 420px; }
+    .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
     .btn{
       background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2);
       padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer;
     }
     .btn:hover{ filter:brightness(1.1) }
-    /* MSTR frame area */
-    #mstr-frame { height:420px; display:flex; align-items:center; justify-content:center; }
     .note{ background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.2); padding:10px 12px; border-radius:10px }
   </style>
 </head>
@@ -99,30 +99,22 @@
     <section class="card span-6">
       <h3 style="margin-top:0">Bitcoin Dominance (BTC.D)</h3>
       <div id="tv-widget"></div>
-      <div class="tv-actions">
-        <button id="reloadTv" class="btn" title="Reload dominance chart">Reload chart</button>
+      <div class="actions">
+        <button id="reloadTv" class="btn">Reload chart</button>
         <a class="btn" href="https://www.tradingview.com/chart?symbol=CRYPTOCAP%3ABTC.D" target="_blank" rel="noopener">Open in TradingView ↗</a>
       </div>
       <div class="small muted">Source: TradingView</div>
     </section>
 
-    <!-- MVRV Z-Score (optional, via Glassnode proxy) -->
-    <section class="card span-6">
-      <h3 style="margin-top:0">MVRV Z-Score (BTC)</h3>
-      <canvas id="mvrvChart"></canvas>
-      <div id="mvrvNote" class="small muted"></div>
-    </section>
-
-    <!-- MSTR NAV Premium (Basic) -->
-    <section class="card span-6">
-      <h3 style="margin-top:0">MSTR — NAV Premium (Basic)</h3>
-      <div id="mstr-frame" class="note">
-        <div class="small">
-          For the best data, open the official chart:
-          <a class="btn" href="https://strategytracker.com/mstr" target="_blank" rel="noopener">Open StrategyTracker ↗</a>
-        </div>
+    <!-- MVRV Z-Score (Bitcoin Magazine Pro) -->
+    <section class="card span-12">
+      <h3 style="margin-top:0">MVRV Z-Score — Bitcoin Magazine Pro</h3>
+      <div id="bm-mvrv" class="note">Loading MVRV chart…</div>
+      <div class="actions">
+        <button id="reloadMvrv" class="btn">Reload MVRV</button>
+        <a class="btn" href="https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/" target="_blank" rel="noopener">Open on Bitcoin Magazine Pro ↗</a>
       </div>
-      <div class="small muted">Source: strategytracker.com/mstr</div>
+      <div class="small muted">Source: bitcoinmagazinepro.com</div>
     </section>
 
     <!-- Notes -->
@@ -137,7 +129,7 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, StrategyTracker</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Bitcoin Magazine Pro</footer>
 
   <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -154,12 +146,9 @@
       usdsek: document.getElementById('usdsek'),
       tvWidget: document.getElementById('tv-widget'),
       reloadTvBtn: document.getElementById('reloadTv'),
-      mvrvNote: document.getElementById('mvrvNote'),
+      bmMvrv: document.getElementById('bm-mvrv'),
+      reloadMvrvBtn: document.getElementById('reloadMvrv'),
     };
-
-    // ===== CONFIG (optional): if you later add a Glassnode proxy URL, put it here
-    // Example: const GLASSNODE_PROXY_URL = "/.netlify/functions/glassnode-mvrv";
-    const GLASSNODE_PROXY_URL = "";
 
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
     const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
@@ -200,7 +189,6 @@
     }
 
     async function fetchUsdSek(){
-      // Free, CORS-friendly
       const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
       if (!r.ok) throw new Error('USD/SEK API error');
       const j = await r.json();
@@ -210,24 +198,22 @@
     }
 
     // ===== Charts
-    function lineChart(canvasId, label, points, yTitle){
+    function drawFgiChart(points){
       if (!window.Chart) return;
-      const ctx = document.getElementById(canvasId).getContext('2d');
+      const ctx = document.getElementById('fgiChart').getContext('2d');
       new Chart(ctx,{
         type:'line',
         data:{
           labels: points.map(p => p.t.toLocaleDateString()),
-          datasets:[{ label, data: points.map(p => p.v), tension:0.3, fill:false }]
+          datasets:[{ label:'Fear & Greed', data: points.map(p => p.v), tension:0.3, fill:false }]
         },
         options:{
           responsive:true,
-          scales:{ y:{ beginAtZero:false, title:{ display:true, text:yTitle } } },
+          scales:{ y:{ beginAtZero:true, suggestedMax:100, title:{ display:true, text:'Index (0-100)' } } },
           plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } }
         }
       });
     }
-
-    function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)'); }
 
     // ===== TradingView with retry
     function mountTradingView(attempt = 0){
@@ -267,25 +253,40 @@
       }
     }
 
-    // ===== MVRV Z-Score (optional)
-    async function fetchMvrvZ(){
-      // Requires a serverless proxy that calls Glassnode with your API key,
-      // returning an array of { t: ISODate, v: number }.
-      if (!GLASSNODE_PROXY_URL){
-        els.mvrvNote.textContent = "To show this chart, add a Glassnode API proxy URL in the code (GLASSNODE_PROXY_URL). I can give you a one-file Netlify Function to enable it.";
-        return null;
-      }
+    // ===== Bitcoin Magazine Pro MVRV iframe (with retry + fallback)
+    const BM_URL = "https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/";
+    function mountBmMvrv(attempt = 0){
+      els.bmMvrv.innerHTML = '<div class="small muted">Loading…</div>';
       try{
-        const r = await fetch(GLASSNODE_PROXY_URL);
-        if (!r.ok) throw new Error('Proxy error');
-        const items = await r.json(); // expecting [{t: "2025-01-01", v: 1.23}, ...]
-        const series = items.map(d => ({ t: new Date(d.t), v: Number(d.v) })).filter(d => isFinite(d.v));
-        lineChart('mvrvChart','MVRV Z-Score',series,'Z-score');
-        els.mvrvNote.textContent = "";
-        return true;
+        const frame = document.createElement('iframe');
+        frame.src = BM_URL;
+        frame.width = "100%";
+        frame.height = "420";
+        frame.style.border = "0";
+        frame.loading = "lazy";
+        frame.referrerPolicy = "no-referrer-when-downgrade";
+
+        els.bmMvrv.innerHTML = "";
+        els.bmMvrv.appendChild(frame);
+
+        // verify after a short delay
+        setTimeout(() => {
+          const broken = !frame || frame.clientHeight < 200 || frame.clientWidth < 200;
+          // if the site blocks embedding with X-Frame-Options, it may remain blank; fall back after a few tries
+          if (broken && attempt < 2) mountBmMvrv(attempt+1);
+          if (broken && attempt >= 2){
+            els.bmMvrv.innerHTML =
+              '<div class="note small">This site may block embedding. '+
+              '<a class="btn" href="'+BM_URL+'" target="_blank" rel="noopener">Open on Bitcoin Magazine Pro ↗</a></div>';
+          }
+        }, 2500);
       }catch(e){
-        els.mvrvNote.textContent = "Could not load MVRV Z-Score from proxy.";
-        return null;
+        if (attempt < 2) setTimeout(() => mountBmMvrv(attempt+1), 800);
+        else {
+          els.bmMvrv.innerHTML =
+            '<div class="note small">Could not load embed. '+
+            '<a class="btn" href="'+BM_URL+'" target="_blank" rel="noopener">Open on Bitcoin Magazine Pro ↗</a></div>';
+        }
       }
     }
 
@@ -306,18 +307,15 @@
         els.updated.textContent = "Some data failed to load. Try refresh.";
         setTimeout(() => mountTradingView(0), 60);
       }
-
-      // Fire and forget: extra indicators that don't affect KPIs
       fetchUsdSek().catch(()=>{});
-      fetchMvrvZ(); // shows helper note if not configured
-
+      setTimeout(() => mountBmMvrv(0), 100);  // mount after paint
       els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
     init();
 
-    if (els.reloadTvBtn){
-      els.reloadTvBtn.addEventListener('click', () => mountTradingView(0));
-    }
+    // Manual reload buttons
+    if (els.reloadTvBtn){ els.reloadTvBtn.addEventListener('click', () => mountTradingView(0)); }
+    if (els.reloadMvrvBtn){ els.reloadMvrvBtn.addEventListener('click', () => mountBmMvrv(0)); }
   </script>
 </body>
 </html>
