@@ -74,7 +74,7 @@
           <div class="small muted">Based on F&G + 24h change</div>
         </div>
         <div class="kpi">
-          <h3>MVRV-Z (est. now)</h3>
+          <h3>MVRV‑Z (est. now)</h3>
           <div class="val" id="mvrvNow">—</div>
           <div class="small muted" id="mvrvNote">Using live price × supply</div>
         </div>
@@ -99,15 +99,8 @@
       <div class="small muted">Source: TradingView</div>
     </section>
 
-    <!-- MVRV Z-Score chart -->
-    <section class="card span-6">
-      <h3 style="margin-top:0">MVRV-Z — 10y history</h3>
-      <canvas id="mvrvChart"></canvas>
-      <div class="small muted">Source: Coin Metrics Community via your Netlify function.</div>
-    </section>
-
     <!-- MSTR mNAV Trend -->
-    <section class="card span-6">
+    <section class="card span-12">
       <h3 style="margin-top:0">MSTR — NAV Premium (Basic)</h3>
       <div id="mnav-embed" class="ratio-box"></div>
       <div class="small muted">Source: StrategyTracker. If the embed is blocked, use the button to open it.</div>
@@ -211,30 +204,23 @@
       });
     }
     function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)', true); }
-    function drawMvrvChart(points){ lineChart('mvrvChart','MVRV-Z', points, 'Z-Score', false); }
 
-    /* ---------- MVRV from Netlify (series + realtime) ---------- */
-    async function fetchMvrvData(days=3650){
+    /* ---------- MVRV from Netlify (just to show KPI) ---------- */
+    async function fetchMvrvNow(days=3650){
       const r = await fetch(`${MVRV_API}?days=${days}`);
       if (!r.ok) throw new Error('MVRV API error');
       const j = await r.json();
-      // j = { sigma, last:{t,mc,rc,z}, realtime:{ts,price,supply,mc,rc,z}|null, series:[{t,v}] }
-      const series = (j.series || []).map(d => ({ t: new Date(d.t), v: Number(d.v) })).filter(d => isFinite(d.v));
       let nowZ = j.realtime?.z ?? j.last?.z;
       if (isFinite(nowZ)) {
         const v = Number(nowZ);
         els.mvrvNow.textContent = v.toFixed(2);
-        // Simple color hint: <0 green, 0–7 yellow, >7 red
-        const cls = v < 0 ? 'chg up' : (v <= 7 ? '' : 'chg down');
+        const cls = v < 0 ? 'chg up' : (v <= 7 ? '' : 'chg down'); // quick color hint
         els.mvrvNow.className = `val ${cls}`.trim();
-        els.mvrvNote.textContent = j.realtime
-          ? "Using live price × latest supply"
-          : "Latest daily close";
+        els.mvrvNote.textContent = j.realtime ? "Using live price × latest supply" : "Latest daily close";
       } else {
         els.mvrvNow.textContent = "—";
         els.mvrvNote.textContent = "Unavailable";
       }
-      return series;
     }
 
     /* ---------- TradingView (reusable + retry) ---------- */
@@ -314,21 +300,11 @@
       }
 
       fetchUsdSek().catch(()=>{});
+      fetchMvrvNow(3650).catch(()=>{ els.mvrvNote.textContent = "Unavailable"; });
 
       // Widgets
       setTimeout(() => mountTradingView(els.tvBtcd, "CRYPTOCAP:BTC.D", 0), 60);
       setTimeout(() => mountMnavEmbed(), 120);
-
-      // MVRV
-      try{
-        const mvrvSeries = await fetchMvrvData(3650);
-        drawMvrvChart(mvrvSeries);
-      }catch(e){
-        console.warn('MVRV load failed:', e);
-        const ctx = document.getElementById('mvrvChart').getContext('2d');
-        ctx.font = '12px system-ui'; ctx.fillStyle = '#9aa0a6';
-        ctx.fillText('MVRV-Z unavailable. Check your Netlify function.', 10, 20);
-      }
 
       els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
