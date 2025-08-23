@@ -73,10 +73,13 @@
           <div class="val"><span id="riskPill" class="risk-pill">—</span></div>
           <div class="small muted">Based on F&G + 24h change</div>
         </div>
+
+        <!-- MVRV‑Z KPI with historical refs -->
         <div class="kpi">
           <h3>MVRV‑Z (est. now)</h3>
           <div class="val" id="mvrvNow">—</div>
           <div class="small muted" id="mvrvNote">Using live price × supply</div>
+          <div class="small muted" id="mvrvRefs">Refs — 2011: — · 2013: — · 2017: — · 2021: —</div>
         </div>
       </div>
     </section>
@@ -143,6 +146,7 @@
       mnavBox: document.getElementById('mnav-embed'),
       mvrvNow: document.getElementById('mvrvNow'),
       mvrvNote: document.getElementById('mvrvNote'),
+      mvrvRefs: document.getElementById('mvrvRefs'),
     };
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
     const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
@@ -205,21 +209,50 @@
     }
     function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)', true); }
 
-    /* ---------- MVRV from Netlify (just to show KPI) ---------- */
-    async function fetchMvrvNow(days=3650){
+    /* ---------- MVRV: KPI + historical ATH references ---------- */
+    const ATHS = [
+      { label: '2011', date: '2011-06-09' },
+      { label: '2013', date: '2013-12-04' },
+      { label: '2017', date: '2017-12-17' },
+      { label: '2021', date: '2021-11-10' },
+    ];
+    function nearestZ(series, targetISO){
+      const tgt = new Date(targetISO);
+      let best = null, bestDiff = Infinity;
+      for (const p of series){
+        const diff = Math.abs(p.t - tgt);
+        if (diff < bestDiff){ bestDiff = diff; best = p; }
+      }
+      return (best && isFinite(best.v)) ? best.v : null;
+    }
+    async function fetchMvrvNowAndRefs(days=6000){
       const r = await fetch(`${MVRV_API}?days=${days}`);
       if (!r.ok) throw new Error('MVRV API error');
       const j = await r.json();
+
+      // Show current / realtime
       let nowZ = j.realtime?.z ?? j.last?.z;
       if (isFinite(nowZ)) {
         const v = Number(nowZ);
         els.mvrvNow.textContent = v.toFixed(2);
-        const cls = v < 0 ? 'chg up' : (v <= 7 ? '' : 'chg down'); // quick color hint
+        const cls = v < 0 ? 'chg up' : (v <= 7 ? '' : 'chg down');
         els.mvrvNow.className = `val ${cls}`.trim();
         els.mvrvNote.textContent = j.realtime ? "Using live price × latest supply" : "Latest daily close";
       } else {
         els.mvrvNow.textContent = "—";
         els.mvrvNote.textContent = "Unavailable";
+      }
+
+      // Build references from series (convert to Date objects)
+      const series = (j.series || []).map(d => ({ t: new Date(d.t), v: Number(d.v) })).filter(d => isFinite(d.v));
+      if (series.length){
+        const refs = ATHS.map(a => {
+          const z = nearestZ(series, a.date);
+          return `${a.label}: ${isFinite(z) ? z.toFixed(2) : '—'}`;
+        }).join(' · ');
+        els.mvrvRefs.textContent = `Refs — ${refs}`;
+      } else {
+        els.mvrvRefs.textContent = "Refs — unavailable";
       }
     }
 
@@ -300,7 +333,7 @@
       }
 
       fetchUsdSek().catch(()=>{});
-      fetchMvrvNow(3650).catch(()=>{ els.mvrvNote.textContent = "Unavailable"; });
+      fetchMvrvNowAndRefs(6000).catch(()=>{ els.mvrvRefs.textContent = "Refs — unavailable"; });
 
       // Widgets
       setTimeout(() => mountTradingView(els.tvBtcd, "CRYPTOCAP:BTC.D", 0), 60);
