@@ -89,11 +89,11 @@
       <div class="small muted">Source: TradingView</div>
     </section>
 
-    <!-- MVRV Z-Score (Coin Metrics Community API) -->
+    <!-- MVRV Z-Score -->
     <section class="card span-12">
-      <h3 style="margin-top:0">MVRV Z-Score — Coin Metrics</h3>
+      <h3 style="margin-top:0">MVRV Z-Score (computed) — Coin Metrics via Netlify</h3>
       <canvas id="mvrvChart"></canvas>
-      <div class="small muted">Source: Coin Metrics Community API (metric <code>CapMVRVZ</code>). Free for non-commercial use.</div>
+      <div class="small muted">Source: Coin Metrics Community (CapMrktCurUSD, CapRealUSD) via your Netlify function. Z = (MC − RC) / σ(MC).</div>
     </section>
 
     <!-- Notes -->
@@ -108,12 +108,16 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Coin Metrics</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Coin Metrics (community)</footer>
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <script>
+    /* ======= SET YOUR NETLIFY FUNCTION URL HERE ======= */
+    const CM_PROXY_URL = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv";
+    /* ================================================== */
+
     const els = {
       updated: document.getElementById('updated'),
       price: document.getElementById('price'),
@@ -186,31 +190,15 @@
     }
     function drawFgiChart(points){ lineChart('fgiChart','Fear & Greed',points,'Index (0–100)', true); }
 
-    // Coin Metrics MVRV Z-Score (CapMVRVZ) — community API
-    async function fetchMvrvZ(days=1095){ // ~3 years
-      const start = new Date(Date.now() - days*24*60*60*1000).toISOString().slice(0,10);
-      let url = `https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=CapMVRVZ&start_time=${start}&page_size=10000`;
-      const rows = [];
-      // handle pagination just in case
-      while (url){
-        const r = await fetch(url);
-        if(!r.ok) throw new Error('Coin Metrics API error');
-        const j = await r.json();
-        const data = j.data || j.result || [];
-        for (const d of data){
-          const t = new Date(d.time || d.timestamp || d.date || d.t);
-          const v = parseFloat(d.CapMVRVZ || d.capmvrvz || d.v);
-          if (isFinite(v)) rows.push({ t, v });
-        }
-        url = j.next_page_url || null;
-      }
-      rows.sort((a,b)=>a.t-b.t);
-      return rows;
+    // MVRV via your Netlify proxy (computed server-side)
+    async function fetchMvrvZ(days=3650){
+      const url = `${CM_PROXY_URL}?days=${days}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('MVRV proxy error');
+      const arr = await r.json(); // [{t:"YYYY-MM-DD", v:number}]
+      return arr.map(d => ({ t: new Date(d.t), v: Number(d.v) })).filter(d => isFinite(d.v));
     }
-
-    function drawMvrvChart(points){
-      lineChart('mvrvChart','MVRV Z-Score', points, 'Z-Score', false);
-    }
+    function drawMvrvChart(points){ lineChart('mvrvChart','MVRV Z-Score', points, 'Z-Score', false); }
 
     /* ---------- TradingView (retry) ---------- */
     function mountTradingView(attempt = 0){
@@ -254,16 +242,12 @@
     async function init(){
       try{
         const [bin, fgi] = await Promise.all([fetchBinance(), fetchFearGreed(30)]);
-        // KPIs + FGI Chart
         const composite = computeRisk(fgi.current, bin.chgPct);
-        els.riskPill.classList.remove('risk-low','risk-medium','risk-high'); // clean slate
-        (function setRisk(){
-          let level='HIGH', cls='risk-high';
-          if (composite < 40){ level='LOW'; cls='risk-low'; }
-          else if (composite <= 65){ level='MEDIUM'; cls='risk-medium'; }
-          els.riskPill.className = 'risk-pill ' + cls;
-          els.riskPill.textContent = `${level} (${Math.round(composite)})`;
-        })();
+        let level='HIGH', cls='risk-high';
+        if (composite < 40){ level='LOW'; cls='risk-low'; }
+        else if (composite <= 65){ level='MEDIUM'; cls='risk-medium'; }
+        els.riskPill.className = 'risk-pill ' + cls;
+        els.riskPill.textContent = `${level} (${Math.round(composite)})`;
         drawFgiChart(fgi.series);
         setTimeout(() => mountTradingView(0), 60);
       }catch(err){
@@ -272,17 +256,17 @@
         setTimeout(() => mountTradingView(0), 60);
       }
 
-      // Not critical for KPIs:
       fetchUsdSek().catch(()=>{});
-      // MVRV from Coin Metrics
+
+      // MVRV (use large history for stable sigma)
       try{
-        const mvrv = await fetchMvrvZ(1095);
+        const mvrv = await fetchMvrvZ(3650);
         drawMvrvChart(mvrv);
       }catch(e){
         console.warn('MVRV failed:', e);
         const ctx = document.getElementById('mvrvChart').getContext('2d');
         ctx.font = '12px system-ui'; ctx.fillStyle = '#9aa0a6';
-        ctx.fillText('Could not load MVRV Z-Score (Coin Metrics). Try refresh.', 10, 20);
+        ctx.fillText('MVRV Z-Score unavailable. Check Netlify function.', 10, 20);
       }
 
       els.updated.textContent = "Updated: " + new Date().toLocaleString();
