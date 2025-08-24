@@ -7,39 +7,78 @@
   <meta name="description" content="Personal Bitcoin status & risk dashboard." />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
-    :root{ --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff; --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c; }
-    @media (prefers-color-scheme: light){
-      :root{ --bg:#ffffff; --card:#f6f8fb; --text:#1b1f24; --muted:#5f6368; --accent:#1565c0; --good:#1e7d4f; --warn:#a17900; --bad:#b3392d; }
+    :root{
+      --bg:#0f1115;
+      --card:#171a21;
+      --text:#e6e6e6;
+      --muted:#9aa0a6;
+      --accent:#4da3ff;
+      --good:#27ae60;
+      --warn:#f1c40f;
+      --bad:#e74c3c;
     }
     *{ box-sizing:border-box }
-    body{ margin:0; background:var(--bg); color:var(--text);
-      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial }
-    header{ padding:20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
-      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap }
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    }
+    header{
+      padding:20px 16px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
     .brand{ font-weight:700; letter-spacing:0.2px }
     .grid{ display:grid; gap:16px; padding:16px; grid-template-columns:1fr; max-width:1200px; margin:0 auto }
     @media (min-width:900px){ .grid{ grid-template-columns:repeat(12,1fr) } }
-    .card{ background:var(--card); border:1px solid rgba(0,0,0,0.2); border-radius:14px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.2) }
-    .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
+    .card{
+      background:var(--card);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:14px;
+      padding:16px;
+      box-shadow:0 10px 25px rgba(0,0,0,0.3);
+    }
+    .span-6{ grid-column:span 6 }
+    .span-12{ grid-column:span 12 }
     .kpis{ display:flex; gap:16px; flex-wrap:wrap }
-    .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.03); border-radius:12px; padding:12px 14px }
+    .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.05); border-radius:12px; padding:12px 14px }
     .kpi h3{ margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.3px }
     .kpi .val{ font-size:22px; font-weight:700 }
-    .chg.up{ color:var(--good) } .chg.down{ color:var(--bad) }
-    .risk-pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px }
+    .chg.up{ color:var(--good) }
+    .chg.down{ color:var(--bad) }
+    .risk-pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px
+    }
     .risk-low{ background:rgba(39,174,96,0.15); color:var(--good); border:1px solid rgba(39,174,96,0.35) }
     .risk-medium{ background:rgba(241,196,15,0.15); color:var(--warn); border:1px solid rgba(241,196,15,0.35) }
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
-    .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
+    .muted{ color:var(--muted) }
+    .small{ font-size:12px }
+    footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
 
     /* Widgets */
-    .tv-box, .ratio-box{ position:relative; width:100%; height:420px; border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.03); }
+    .tv-box, .ratio-box{
+      position:relative; width:100%; height:420px;
+      border-radius:12px; overflow:hidden;
+      background:rgba(255,255,255,0.05);
+    }
     .ratio-box{ padding-top:56.25%; height:auto; }
     .ratio-box iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
     .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
-    .btn{ background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2); padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer }
-    .btn:hover{ filter:brightness(1.1) }
+    .btn{
+      background:transparent;
+      color:var(--accent);
+      border:1px solid rgba(255,255,255,0.2);
+      padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer
+    }
+    .btn:hover{ filter:brightness(1.2) }
     .center{ display:flex; align-items:center; justify-content:center; height:240px; text-align:center; }
   </style>
 </head>
@@ -73,8 +112,6 @@
           <div class="val"><span id="riskPill" class="risk-pill">—</span></div>
           <div class="small muted">Based on F&G + 24h change</div>
         </div>
-
-        <!-- MVRV-Z KPI only -->
         <div class="kpi">
           <h3>MVRV-Z (est. now)</h3>
           <div class="val" id="mvrvNow">—</div>
@@ -203,7 +240,7 @@
       const s=document.createElement('script');
       s.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
       s.async=true;
-      s.innerHTML=JSON.stringify({autosize:false,width:"100%",height:420,symbol,interval:"D",timezone:"Europe/Stockholm",theme:(matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?"dark":"light",style:"3",locale:"en"});
+      s.innerHTML=JSON.stringify({autosize:false,width:"100%",height:420,symbol,interval:"D",timezone:"Europe/Stockholm",theme:"dark",style:"3",locale:"en"});
       const wrap=document.createElement('div');wrap.className="tradingview-widget-container";wrap.style.height="420px";const cont=document.createElement('div');cont.className="tradingview-widget-container__widget";cont.style.height="100%";wrap.appendChild(cont);wrap.appendChild(s);container.appendChild(wrap);
     }
 
