@@ -18,68 +18,41 @@
       --bad:#e74c3c;
     }
     *{ box-sizing:border-box }
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
-    }
-    header{
-      padding:20px 16px;
-      border-bottom:1px solid rgba(255,255,255,0.06);
-      display:flex;
-      gap:12px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
+    body{ margin:0; background:var(--bg); color:var(--text);
+      font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; }
+    header{ padding:20px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
     .brand{ font-weight:700; letter-spacing:0.2px }
     .grid{ display:grid; gap:16px; padding:16px; grid-template-columns:1fr; max-width:1200px; margin:0 auto }
     @media (min-width:900px){ .grid{ grid-template-columns:repeat(12,1fr) } }
-    .card{
-      background:var(--card);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:14px;
-      padding:16px;
-      box-shadow:0 10px 25px rgba(0,0,0,0.3);
-    }
-    .span-6{ grid-column:span 6 }
-    .span-12{ grid-column:span 12 }
+    .card{ background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:16px; box-shadow:0 10px 25px rgba(0,0,0,0.3) }
+    .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
     .kpis{ display:flex; gap:16px; flex-wrap:wrap }
     .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.05); border-radius:12px; padding:12px 14px }
     .kpi h3{ margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.3px }
-    .kpi .val{ font-size:22px; font-weight:700 }
-    .chg.up{ color:var(--good) }
-    .chg.down{ color:var(--bad) }
-    .risk-pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px
-    }
+    .kpi .val{ font-size:22px; font-weight:700; transition: color .2s ease }
+    .chg.up{ color:var(--good) } .chg.down{ color:var(--bad) }
+    .risk-pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px; transition: color .2s ease, background-color .2s ease, border-color .2s ease }
     .risk-low{ background:rgba(39,174,96,0.15); color:var(--good); border:1px solid rgba(39,174,96,0.35) }
     .risk-medium{ background:rgba(241,196,15,0.15); color:var(--warn); border:1px solid rgba(241,196,15,0.35) }
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
-    .muted{ color:var(--muted) }
-    .small{ font-size:12px }
-    footer{ padding:24px 16px; text-align:center; color:var(--muted) }
+    .muted{ color:var(--muted) } .small{ font-size:12px } footer{ padding:24px 16px; text-align:center; color:var(--muted) }
     canvas{ width:100%; height:300px }
-
-    /* Widgets */
-    .tv-box, .ratio-box{
-      position:relative; width:100%; height:420px;
-      border-radius:12px; overflow:hidden;
-      background:rgba(255,255,255,0.05);
-    }
+    .tv-box, .ratio-box{ position:relative; width:100%; height:420px; border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.05) }
     .ratio-box{ padding-top:56.25%; height:auto; }
-    .ratio-box iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+    .ratio-box iframe{ position:absolute; inset:0; width:100%; height:100%; border:0 }
     .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
-    .btn{
-      background:transparent;
-      color:var(--accent);
-      border:1px solid rgba(255,255,255,0.2);
-      padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer
-    }
+    .btn{ background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2); padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer }
     .btn:hover{ filter:brightness(1.2) }
     .center{ display:flex; align-items:center; justify-content:center; height:240px; text-align:center; }
+
+    /* Flash highlights */
+    @keyframes flashUp { 0%{ color:var(--good) } 100%{ color:var(--text) } }
+    @keyframes flashDown { 0%{ color:var(--bad) } 100%{ color:var(--text) } }
+    @keyframes flashNeutral { 0%{ color:var(--accent) } 100%{ color:var(--text) } }
+    .flash-up   { animation: flashUp .8s ease; }
+    .flash-down { animation: flashDown .8s ease; }
+    .flash      { animation: flashNeutral .8s ease; }
   </style>
 </head>
 <body>
@@ -127,7 +100,7 @@
       <div class="small muted">Source: Alternative.me</div>
     </section>
 
-    <!-- BTC Dominance (TradingView) -->
+    <!-- BTC Dominance -->
     <section class="card span-6">
       <h3 style="margin-top:0">Bitcoin Dominance (BTC.D)</h3>
       <div id="tv-btcd" class="tv-box"></div>
@@ -138,31 +111,19 @@
       <div class="small muted">Source: TradingView</div>
     </section>
 
-    <!-- MSTR mNAV Trend -->
+    <!-- MSTR NAV -->
     <section class="card span-12">
       <h3 style="margin-top:0">MSTR — NAV Premium (Basic)</h3>
       <div id="mnav-embed" class="ratio-box"></div>
-      <div class="small muted">Source: StrategyTracker. If the embed is blocked, use the button to open it.</div>
+      <div class="small muted">Source: StrategyTracker. If blocked, open below.</div>
       <div class="actions">
         <a class="btn" href="https://strategytracker.com/mstr" target="_blank" rel="noopener">Open on StrategyTracker ↗</a>
       </div>
     </section>
-
-    <!-- Notes -->
-    <section class="card span-12">
-      <h3 style="margin-top:0">How risk is computed</h3>
-      <p class="small muted">Risk = 70% Fear &amp; Greed (0–100) + 30% of |24h % change| clamped at 10% (scaled to 0–100). Personal use only; not financial advice.</p>
-      <ul class="small">
-        <li><b>Low</b>: composite &lt; 40</li>
-        <li><b>Medium</b>: 40–65</li>
-        <li><b>High</b>: &gt; 65</li>
-      </ul>
-    </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Coin Metrics (community), StrategyTracker</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Coin Metrics, StrategyTracker</footer>
 
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <script>
@@ -181,41 +142,87 @@
       mvrvNow: document.getElementById('mvrvNow'),
       mvrvNote: document.getElementById('mvrvNote'),
     };
+
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
     const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
 
-    async function fetchBinance(){
-      const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
-      const j = await r.json();
-      els.price.textContent = fmtUSD(j.lastPrice);
-      const chgPct = parseFloat(j.priceChangePercent);
-      els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
-      els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
-      return { chgPct };
+    // previous values for directional flashes
+    const prev = { price:null, fgi:null, usdsek:null, mvrv:null, riskComposite:null };
+
+    function flash(el, dir){ // dir: 'up' | 'down' | 'neutral'
+      if (!el) return;
+      el.classList.remove('flash-up','flash-down','flash');
+      // force reflow so animation can retrigger
+      void el.offsetWidth;
+      el.classList.add(dir === 'up' ? 'flash-up' : dir === 'down' ? 'flash-down' : 'flash');
     }
 
-    async function fetchFearGreed(limit=30){
-      const r = await fetch(`https://api.alternative.me/fng/?limit=${limit}&format=json`);
-      const { data } = await r.json();
-      const cur = data[0];
-      els.fgi.textContent = cur.value;
-      els.fgiLabel.textContent = cur.value_classification;
-      return data.slice().reverse().map(d => ({
-        t: new Date(parseInt(d.timestamp,10)*1000), v: parseInt(d.value,10)
-      }));
+    function deltaFlash(el, next, prevVal){
+      if (prevVal == null || !isFinite(next)) { flash(el,'neutral'); return next; }
+      if (next > prevVal) flash(el,'up');
+      else if (next < prevVal) flash(el,'down');
+      else flash(el,'neutral');
+      return next;
     }
 
-    async function fetchUsdSek(){
-      const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
-      const j = await r.json();
-      els.usdsek.textContent = j.rates?.SEK ? `${fmt2(j.rates.SEK)} SEK` : "—";
+    /* === KPI Refresh === */
+    async function refreshKPIs(){
+      try {
+        // BTC
+        const r1 = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
+        const j1 = await r1.json();
+        const priceNum = parseFloat(j1.lastPrice);
+        els.price.textContent = fmtUSD(priceNum);
+        prev.price = deltaFlash(els.price, priceNum, prev.price);
+
+        const chgPct = parseFloat(j1.priceChangePercent);
+        els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
+        els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
+
+        // Fear & Greed (latest only)
+        const r2 = await fetch(`https://api.alternative.me/fng/?limit=1&format=json`);
+        const { data } = await r2.json();
+        const cur = data[0];
+        const fgiNum = parseInt(cur.value);
+        els.fgi.textContent = fgiNum;
+        prev.fgi = deltaFlash(els.fgi, fgiNum, prev.fgi);
+        els.fgiLabel.textContent = cur.value_classification;
+
+        // USD/SEK
+        const r3 = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
+        const j3 = await r3.json();
+        const rate = j3.rates?.SEK ?? null;
+        if (rate){
+          els.usdsek.textContent = `${fmt2(rate)} SEK`;
+          prev.usdsek = deltaFlash(els.usdsek, rate, prev.usdsek);
+        }
+
+        // MVRV
+        const r4 = await fetch(MVRV_API);
+        const j4 = await r4.json();
+        const nowZ = j4.realtime?.z ?? j4.last?.z;
+        if (isFinite(nowZ)){
+          els.mvrvNow.textContent = Number(nowZ).toFixed(2);
+          prev.mvrv = deltaFlash(els.mvrvNow, Number(nowZ), prev.mvrv);
+          els.mvrvNote.textContent = j4.realtime ? "Using live price × supply" : "Latest daily close";
+        }
+
+        // Risk (composite)
+        const composite = 0.7 * fgiNum + 0.3 * (Math.min(Math.abs(chgPct),10)*10);
+        let level='HIGH', cls='risk-high';
+        if (composite<40){ level='LOW'; cls='risk-low'; }
+        else if (composite<=65){ level='MEDIUM'; cls='risk-medium'; }
+        els.riskPill.className='risk-pill '+cls;
+        els.riskPill.textContent=`${level} (${Math.round(composite)})`;
+        prev.riskComposite = deltaFlash(els.riskPill, composite, prev.riskComposite);
+
+        els.updated.textContent = "Updated: " + new Date().toLocaleString();
+      } catch(e){
+        console.error("KPI refresh failed", e);
+      }
     }
 
-    function computeRisk(fgi, chgPct){
-      const vol = Math.min(Math.abs(chgPct || 0), 10) * 10;
-      return 0.7 * fgi + 0.3 * vol;
-    }
-
+    /* === One-time loads === */
     function lineChart(canvasId, points, label, yTitle){
       const ctx = document.getElementById(canvasId).getContext('2d');
       new Chart(ctx,{
@@ -224,44 +231,34 @@
         options:{ scales:{ y:{ beginAtZero:true, title:{ display:true, text:yTitle } } }, plugins:{ legend:{ display:false } } }
       });
     }
-
-    async function fetchMvrvNow(){
-      const r = await fetch(MVRV_API);
-      const j = await r.json();
-      const nowZ = j.realtime?.z ?? j.last?.z;
-      if (isFinite(nowZ)){
-        els.mvrvNow.textContent = nowZ.toFixed(2);
-        els.mvrvNote.textContent = j.realtime ? "Using live price × supply" : "Latest daily close";
-      }
+    async function loadChartOnce(){
+      const r = await fetch(`https://api.alternative.me/fng/?limit=30&format=json`);
+      const { data } = await r.json();
+      const series = data.slice().reverse().map(d=>({t:new Date(d.timestamp*1000), v:parseInt(d.value)}));
+      lineChart('fgiChart',series,'Fear & Greed','Index (0–100)');
     }
-
     function mountTradingView(container,symbol){
       container.innerHTML='';
       const s=document.createElement('script');
       s.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
       s.async=true;
       s.innerHTML=JSON.stringify({autosize:false,width:"100%",height:420,symbol,interval:"D",timezone:"Europe/Stockholm",theme:"dark",style:"3",locale:"en"});
-      const wrap=document.createElement('div');wrap.className="tradingview-widget-container";wrap.style.height="420px";const cont=document.createElement('div');cont.className="tradingview-widget-container__widget";cont.style.height="100%";wrap.appendChild(cont);wrap.appendChild(s);container.appendChild(wrap);
+      const wrap=document.createElement('div');wrap.className="tradingview-widget-container";wrap.style.height="420px";
+      const cont=document.createElement('div');cont.className="tradingview-widget-container__widget";cont.style.height="100%";
+      wrap.appendChild(cont);wrap.appendChild(s);container.appendChild(wrap);
     }
-
     function mountMnavEmbed(){
       const iframe=document.createElement('iframe');iframe.src="https://strategytracker.com/mstr?embed=1";iframe.loading="lazy";iframe.referrerPolicy="no-referrer-when-downgrade";
       els.mnavBox.appendChild(iframe);
     }
 
+    /* === Init === */
     async function init(){
-      const [bin,fgi]=await Promise.all([fetchBinance(),fetchFearGreed()]);
-      const composite=computeRisk(fgi[fgi.length-1].v,bin.chgPct);
-      let level='HIGH',cls='risk-high';
-      if (composite<40){level='LOW';cls='risk-low';}
-      else if (composite<=65){level='MEDIUM';cls='risk-medium';}
-      els.riskPill.className='risk-pill '+cls;els.riskPill.textContent=`${level} (${Math.round(composite)})`;
-      lineChart('fgiChart',fgi,'Fear & Greed','Index (0–100)');
-      fetchUsdSek();
-      fetchMvrvNow();
+      await refreshKPIs();              // first paint
+      await loadChartOnce();            // F&G history once
       mountTradingView(els.tvBtcd,"CRYPTOCAP:BTC.D");
       mountMnavEmbed();
-      els.updated.textContent="Updated: "+new Date().toLocaleString();
+      setInterval(refreshKPIs,10000);   // KPIs every 10s
     }
     init();
   </script>
