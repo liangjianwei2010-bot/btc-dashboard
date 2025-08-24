@@ -128,7 +128,6 @@
 
   <script>
     const MVRV_API = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv";
-
     const els = {
       updated: document.getElementById('updated'),
       price: document.getElementById('price'),
@@ -146,17 +145,14 @@
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
     const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
 
-    // previous values for directional flashes
     const prev = { price:null, fgi:null, usdsek:null, mvrv:null, riskComposite:null };
 
-    function flash(el, dir){ // dir: 'up' | 'down' | 'neutral'
+    function flash(el, dir){
       if (!el) return;
       el.classList.remove('flash-up','flash-down','flash');
-      // force reflow so animation can retrigger
-      void el.offsetWidth;
+      void el.offsetWidth; // reflow
       el.classList.add(dir === 'up' ? 'flash-up' : dir === 'down' ? 'flash-down' : 'flash');
     }
-
     function deltaFlash(el, next, prevVal){
       if (prevVal == null || !isFinite(next)) { flash(el,'neutral'); return next; }
       if (next > prevVal) flash(el,'up');
@@ -165,7 +161,6 @@
       return next;
     }
 
-    /* === KPI Refresh === */
     async function refreshKPIs(){
       try {
         // BTC
@@ -174,12 +169,11 @@
         const priceNum = parseFloat(j1.lastPrice);
         els.price.textContent = fmtUSD(priceNum);
         prev.price = deltaFlash(els.price, priceNum, prev.price);
-
         const chgPct = parseFloat(j1.priceChangePercent);
         els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
         els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
 
-        // Fear & Greed (latest only)
+        // F&G
         const r2 = await fetch(`https://api.alternative.me/fng/?limit=1&format=json`);
         const { data } = await r2.json();
         const cur = data[0];
@@ -207,7 +201,7 @@
           els.mvrvNote.textContent = j4.realtime ? "Using live price × supply" : "Latest daily close";
         }
 
-        // Risk (composite)
+        // Risk
         const composite = 0.7 * fgiNum + 0.3 * (Math.min(Math.abs(chgPct),10)*10);
         let level='HIGH', cls='risk-high';
         if (composite<40){ level='LOW'; cls='risk-low'; }
@@ -222,7 +216,6 @@
       }
     }
 
-    /* === One-time loads === */
     function lineChart(canvasId, points, label, yTitle){
       const ctx = document.getElementById(canvasId).getContext('2d');
       new Chart(ctx,{
@@ -252,13 +245,12 @@
       els.mnavBox.appendChild(iframe);
     }
 
-    /* === Init === */
     async function init(){
-      await refreshKPIs();              // first paint
-      await loadChartOnce();            // F&G history once
+      await refreshKPIs();          // first paint
+      await loadChartOnce();        // F&G history once
       mountTradingView(els.tvBtcd,"CRYPTOCAP:BTC.D");
       mountMnavEmbed();
-      setInterval(refreshKPIs,10000);   // KPIs every 10s
+      setInterval(refreshKPIs,5000); // every 5s
     }
     init();
   </script>
