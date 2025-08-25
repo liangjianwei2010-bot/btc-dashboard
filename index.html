@@ -124,9 +124,8 @@
     /* =========================
        CONFIG / HELPERS
     ==========================*/
-    // Netlify function endpoints
-    const USDSEK_API = "/.netlify/functions/usdsek";   // <-- Finnhub-backed USD/SEK function
-    const MVRV_API   = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv"; // your existing MVRV proxy
+    const USDSEK_API = "/.netlify/functions/usdsek";   // Finnhub-backed USD/SEK function
+    const MVRV_API   = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv"; // your MVRV proxy
 
     const els = {
       updated: document.getElementById('updated'),
@@ -160,63 +159,109 @@
     }
 
     /* =========================
-       KPI REFRESH (every 5s)
+       KPI REFRESH (every 5s) — now resilient
     ==========================*/
     async function refreshKPIs(){
+      let fgiNum = NaN;
+      let chgPct = NaN;
+
+      // 1) BTC — Binance 24h ticker
       try {
-        // 1) BTC — Binance 24h ticker
         const r1 = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
         const j1 = await r1.json();
         const priceNum = parseFloat(j1.lastPrice);
         els.price.textContent = fmtUSD(priceNum);
         prev.price = deltaFlash(els.price, priceNum, prev.price);
-        const chgPct = parseFloat(j1.priceChangePercent);
-        els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
-        els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
+        chgPct = parseFloat(j1.priceChangePercent);
+        if (isFinite(chgPct)) {
+          els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
+          els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
+        } else {
+          els.priceChange.textContent = '—';
+          els.priceChange.className = 'small';
+        }
+      } catch(e){
+        console.warn('BTC fetch failed', e);
+      }
 
-        // 2) Fear & Greed — latest only
+      // 2) Fear & Greed — latest only
+      try {
         const r2 = await fetch('https://api.alternative.me/fng/?limit=1&format=json');
-        const { data } = await r2.json();
-        const cur = data[0];
-        const fgiNum = parseInt(cur.value, 10);
-        els.fgi.textContent = fgiNum;
-        prev.fgi = deltaFlash(els.fgi, fgiNum, prev.fgi);
-        els.fgiLabel.textContent = cur.value_classification;
+        const j2 = await r2.json();
+        const cur = j2.data?.[0];
+        fgiNum = parseInt(cur?.value ?? 'NaN', 10);
+        if (isFinite(fgiNum)) {
+          els.fgi.textContent = fgiNum;
+          prev.fgi = deltaFlash(els.fgi, fgiNum, prev.fgi);
+          els.fgiLabel.textContent = cur?.value_classification ?? '';
+        } else {
+          els.fgi.textContent = '—';
+          els.fgiLabel.textContent = '—';
+        }
+      } catch(e){
+        console.warn('FGI fetch failed', e);
+      }
 
-        // 3) USD/SEK — from Netlify Function (Finnhub)
-        const fxResp = await fetch(USDSEK_API);
+      // 3) USD/SEK — from Netlify Function (Finnhub)
+      try {
+        const fxResp = await fetch(USDSEK_API, { cache: 'no-store' });
+        if (!fxResp.ok) throw new Error(`USDSEK ${fxResp.status}`);
         const fx = await fxResp.json(); // { pair, rate, source, ts }
-        if (isFinite(fx.rate)) {
-          const rateNum = Number(fx.rate);
+        const rateNum = Number(fx.rate);
+        if (isFinite(rateNum)) {
           els.usdsek.textContent = `${rateNum.toLocaleString(undefined,{ maximumFractionDigits:4 })} SEK`;
           prev.usdsek = deltaFlash(els.usdsek, rateNum, prev.usdsek);
+        } else {
+          els.usdsek.textContent = 'N/A';
         }
-
-        // 4) MVRV-Z — realtime estimate via your proxy
-        try {
-          const r4 = await fetch(MVRV_API);
-          const j4 = await r4.json();
-          const nowZ = j4.realtime?.z ?? j4.last?.z;
-          if (isFinite(nowZ)) {
-            els.mvrvNow.textContent = Number(nowZ).toFixed(2);
-            prev.mvrv = deltaFlash(els.mvrvNow, Number(nowZ), prev.mvrv);
-            els.mvrvNote.textContent = j4.realtime ? "Using live price × supply" : "Latest daily close";
-          }
-        } catch(_) {}
-
-        // 5) Risk pill (simple composite)
-        const composite = 0.7 * fgiNum + 0.3 * (Math.min(Math.abs(chgPct),10)*10);
-        let level='HIGH', cls='risk-high';
-        if (composite<40){ level='LOW'; cls='risk-low'; }
-        else if (composite<=65){ level='MEDIUM'; cls='risk-medium'; }
-        els.riskPill.className='risk-pill '+cls;
-        els.riskPill.textContent=`${level} (${Math.round(composite)})`;
-        prev.riskComposite = deltaFlash(els.riskPill, composite, prev.riskComposite);
-
-        els.updated.textContent = "Updated: " + new Date().toLocaleString();
       } catch(e){
-        console.error('KPI refresh failed', e);
+        console.warn('USD/SEK fetch failed', e);
+        els.usdsek.textContent = 'N/A';
       }
+
+      // 4) MVRV-Z — realtime estimate via your proxy
+      try {
+        const r4 = await fetch("https://mvrvz.netlify.app/.netlify/functions/cm-mvrv", { cache:'no-store' });
+        if (r4.ok) {
+          const j4 = await r4.json();
+          const nowZ = Number(j4?.realtime?.z ?? j4?.last?.z);
+          if (isFinite(nowZ)) {
+            els.mvrvNow.textContent = nowZ.toFixed(2);
+            prev.mvrv = deltaFlash(els.mvrvNow, nowZ, prev.mvrv);
+            els.mvrvNote.textContent = j4.realtime ? "Using live price × supply" : "Latest daily close";
+          } else {
+            els.mvrvNow.textContent = '—';
+          }
+        } else {
+          els.mvrvNow.textContent = '—';
+        }
+      } catch(e){
+        console.warn('MVRV fetch failed', e);
+        els.mvrvNow.textContent = '—';
+      }
+
+      // 5) Risk pill (simple composite, only if we have the inputs)
+      try {
+        if (isFinite(fgiNum) && isFinite(chgPct)) {
+          const composite = 0.7 * fgiNum + 0.3 * (Math.min(Math.abs(chgPct),10)*10);
+          let level='HIGH', cls='risk-high';
+          if (composite<40){ level='LOW'; cls='risk-low'; }
+          else if (composite<=65){ level='MEDIUM'; cls='risk-medium'; }
+          els.riskPill.className='risk-pill '+cls;
+          els.riskPill.textContent=`${level} (${Math.round(composite)})`;
+          prev.riskComposite = deltaFlash(els.riskPill, composite, prev.riskComposite);
+        } else {
+          els.riskPill.className='risk-pill';
+          els.riskPill.textContent='—';
+        }
+      } catch(e){
+        console.warn('Risk compute failed', e);
+        els.riskPill.className='risk-pill';
+        els.riskPill.textContent='—';
+      }
+
+      // Always stamp "Updated" so you know a cycle completed
+      els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
 
     /* =========================
@@ -234,10 +279,12 @@
     }
 
     async function loadFgiChart(){
-      const r = await fetch('https://api.alternative.me/fng/?limit=30&format=json');
-      const { data } = await r.json();
-      const series = data.slice().reverse().map(d=>({t:new Date(d.timestamp*1000), v:parseInt(d.value,10)}));
-      lineChart('fgiChart', series, 'Fear & Greed', 'Index (0–100)');
+      try{
+        const r = await fetch('https://api.alternative.me/fng/?limit=30&format=json');
+        const { data } = await r.json();
+        const series = (data||[]).slice().reverse().map(d=>({t:new Date(d.timestamp*1000), v:parseInt(d.value,10)}));
+        if (series.length) lineChart('fgiChart', series, 'Fear & Greed', 'Index (0–100)');
+      }catch(e){ console.warn('FGI chart failed', e); }
     }
 
     function mountTradingView(container, symbol){
