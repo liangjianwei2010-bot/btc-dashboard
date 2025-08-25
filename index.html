@@ -26,7 +26,8 @@
     .kpi h3{ margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.3px }
     .kpi .val{ font-size:22px; font-weight:700; transition: color .2s ease }
     .chg.up{ color:var(--good) } .chg.down{ color:var(--bad) }
-    .risk-pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px; transition: color .2s ease, background-color .2s ease, border-color .2s ease }
+    .risk-pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:0.3px;
+      transition: color .2s ease, background-color .2s ease, border-color .2s ease }
     .risk-low{ background:rgba(39,174,96,0.15); color:var(--good); border:1px solid rgba(39,174,96,0.35) }
     .risk-medium{ background:rgba(241,196,15,0.15); color:var(--warn); border:1px solid rgba(241,196,15,0.35) }
     .risk-high{ background:rgba(231,76,60,0.15); color:var(--bad); border:1px solid rgba(231,76,60,0.35) }
@@ -71,7 +72,7 @@
         <div class="kpi">
           <h3>USD/SEK</h3>
           <div class="val" id="usdsek">—</div>
-          <div class="small muted">Source: Finnhub</div>
+          <div class="small muted">Source: Frankfurter</div>
         </div>
         <div class="kpi">
           <h3>Risk Level</h3>
@@ -115,7 +116,7 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, Finnhub, TradingView, Coin Metrics, StrategyTracker</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, Frankfurter, TradingView, Coin Metrics, StrategyTracker</footer>
 
   <!-- Chart.js (for F&G history) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -124,8 +125,8 @@
     /* =========================
        CONFIG / HELPERS
     ==========================*/
-    const USDSEK_API = "/.netlify/functions/usdsek";   // Finnhub-backed USD/SEK function
-    const MVRV_API   = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv"; // your MVRV proxy
+    // MVRV proxy you used before
+    const MVRV_API = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv";
 
     const els = {
       updated: document.getElementById('updated'),
@@ -159,7 +160,7 @@
     }
 
     /* =========================
-       KPI REFRESH (every 5s) — now resilient
+       KPI REFRESH (every 5s), resilient per source
     ==========================*/
     async function refreshKPIs(){
       let fgiNum = NaN;
@@ -202,26 +203,26 @@
         console.warn('FGI fetch failed', e);
       }
 
-      // 3) USD/SEK — from Netlify Function (Finnhub)
+      // 3) USD/SEK — Frankfurter
       try {
-        const fxResp = await fetch(USDSEK_API, { cache: 'no-store' });
-        if (!fxResp.ok) throw new Error(`USDSEK ${fxResp.status}`);
-        const fx = await fxResp.json(); // { pair, rate, source, ts }
-        const rateNum = Number(fx.rate);
+        const fxResp = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK', { cache:'no-store' });
+        if (!fxResp.ok) throw new Error(`Frankfurter ${fxResp.status}`);
+        const fx = await fxResp.json(); // { amount, base, date, rates: { SEK: number } }
+        const rateNum = Number(fx?.rates?.SEK);
         if (isFinite(rateNum)) {
           els.usdsek.textContent = `${rateNum.toLocaleString(undefined,{ maximumFractionDigits:4 })} SEK`;
           prev.usdsek = deltaFlash(els.usdsek, rateNum, prev.usdsek);
         } else {
-          els.usdsek.textContent = 'N/A';
+          els.usdsek.textContent = '—';
         }
       } catch(e){
         console.warn('USD/SEK fetch failed', e);
-        els.usdsek.textContent = 'N/A';
+        els.usdsek.textContent = '—';
       }
 
       // 4) MVRV-Z — realtime estimate via your proxy
       try {
-        const r4 = await fetch("https://mvrvz.netlify.app/.netlify/functions/cm-mvrv", { cache:'no-store' });
+        const r4 = await fetch(MVRV_API, { cache:'no-store' });
         if (r4.ok) {
           const j4 = await r4.json();
           const nowZ = Number(j4?.realtime?.z ?? j4?.last?.z);
