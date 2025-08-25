@@ -8,14 +8,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
     :root{
-      --bg:#0f1115;
-      --card:#171a21;
-      --text:#e6e6e6;
-      --muted:#9aa0a6;
-      --accent:#4da3ff;
-      --good:#27ae60;
-      --warn:#f1c40f;
-      --bad:#e74c3c;
+      --bg:#0f1115; --card:#171a21; --text:#e6e6e6; --muted:#9aa0a6; --accent:#4da3ff;
+      --good:#27ae60; --warn:#f1c40f; --bad:#e74c3c;
     }
     *{ box-sizing:border-box }
     body{ margin:0; background:var(--bg); color:var(--text);
@@ -44,7 +38,6 @@
     .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
     .btn{ background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2); padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer }
     .btn:hover{ filter:brightness(1.2) }
-    .center{ display:flex; align-items:center; justify-content:center; height:240px; text-align:center; }
 
     /* Flash highlights */
     @keyframes flashUp { 0%{ color:var(--good) } 100%{ color:var(--text) } }
@@ -78,7 +71,7 @@
         <div class="kpi">
           <h3>USD/SEK</h3>
           <div class="val" id="usdsek">—</div>
-          <div class="small muted">Source: frankfurter.app</div>
+          <div class="small muted">Source: Finnhub</div>
         </div>
         <div class="kpi">
           <h3>Risk Level</h3>
@@ -122,20 +115,27 @@
     </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, frankfurter.app, TradingView, Coin Metrics, StrategyTracker</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, Finnhub, TradingView, Coin Metrics, StrategyTracker</footer>
 
+  <!-- Chart.js (for F&G history) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <script>
-    const MVRV_API = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv";
+    /* =========================
+       CONFIG / HELPERS
+    ==========================*/
+    // Netlify function endpoints
+    const USDSEK_API = "/.netlify/functions/usdsek";   // <-- Finnhub-backed USD/SEK function
+    const MVRV_API   = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv"; // your existing MVRV proxy
+
     const els = {
       updated: document.getElementById('updated'),
       price: document.getElementById('price'),
       priceChange: document.getElementById('priceChange'),
       fgi: document.getElementById('fgi'),
       fgiLabel: document.getElementById('fgiLabel'),
-      riskPill: document.getElementById('riskPill'),
       usdsek: document.getElementById('usdsek'),
+      riskPill: document.getElementById('riskPill'),
       tvBtcd: document.getElementById('tv-btcd'),
       mnavBox: document.getElementById('mnav-embed'),
       mvrvNow: document.getElementById('mvrvNow'),
@@ -143,14 +143,12 @@
     };
 
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
-    const fmt2 = (n) => (isFinite(n) ? Number(n).toLocaleString(undefined,{maximumFractionDigits:2}) : "—");
-
     const prev = { price:null, fgi:null, usdsek:null, mvrv:null, riskComposite:null };
 
     function flash(el, dir){
       if (!el) return;
       el.classList.remove('flash-up','flash-down','flash');
-      void el.offsetWidth; // reflow
+      void el.offsetWidth; // reflow to retrigger animation
       el.classList.add(dir === 'up' ? 'flash-up' : dir === 'down' ? 'flash-down' : 'flash');
     }
     function deltaFlash(el, next, prevVal){
@@ -161,9 +159,12 @@
       return next;
     }
 
+    /* =========================
+       KPI REFRESH (every 5s)
+    ==========================*/
     async function refreshKPIs(){
       try {
-        // BTC
+        // 1) BTC — Binance 24h ticker
         const r1 = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
         const j1 = await r1.json();
         const priceNum = parseFloat(j1.lastPrice);
@@ -173,35 +174,37 @@
         els.priceChange.textContent = `${chgPct.toFixed(2)}% (24h)`;
         els.priceChange.className = 'small ' + (chgPct >= 0 ? 'chg up' : 'chg down');
 
-        // F&G
-        const r2 = await fetch(`https://api.alternative.me/fng/?limit=1&format=json`);
+        // 2) Fear & Greed — latest only
+        const r2 = await fetch('https://api.alternative.me/fng/?limit=1&format=json');
         const { data } = await r2.json();
         const cur = data[0];
-        const fgiNum = parseInt(cur.value);
+        const fgiNum = parseInt(cur.value, 10);
         els.fgi.textContent = fgiNum;
         prev.fgi = deltaFlash(els.fgi, fgiNum, prev.fgi);
         els.fgiLabel.textContent = cur.value_classification;
 
-        // USD/SEK
-        const r3 = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
-        const j3 = await r3.json();
-        const rate = j3.rates?.SEK ?? null;
-        if (rate){
-          els.usdsek.textContent = `${fmt2(rate)} SEK`;
-          prev.usdsek = deltaFlash(els.usdsek, rate, prev.usdsek);
+        // 3) USD/SEK — from Netlify Function (Finnhub)
+        const fxResp = await fetch(USDSEK_API);
+        const fx = await fxResp.json(); // { pair, rate, source, ts }
+        if (isFinite(fx.rate)) {
+          const rateNum = Number(fx.rate);
+          els.usdsek.textContent = `${rateNum.toLocaleString(undefined,{ maximumFractionDigits:4 })} SEK`;
+          prev.usdsek = deltaFlash(els.usdsek, rateNum, prev.usdsek);
         }
 
-        // MVRV
-        const r4 = await fetch(MVRV_API);
-        const j4 = await r4.json();
-        const nowZ = j4.realtime?.z ?? j4.last?.z;
-        if (isFinite(nowZ)){
-          els.mvrvNow.textContent = Number(nowZ).toFixed(2);
-          prev.mvrv = deltaFlash(els.mvrvNow, Number(nowZ), prev.mvrv);
-          els.mvrvNote.textContent = j4.realtime ? "Using live price × supply" : "Latest daily close";
-        }
+        // 4) MVRV-Z — realtime estimate via your proxy
+        try {
+          const r4 = await fetch(MVRV_API);
+          const j4 = await r4.json();
+          const nowZ = j4.realtime?.z ?? j4.last?.z;
+          if (isFinite(nowZ)) {
+            els.mvrvNow.textContent = Number(nowZ).toFixed(2);
+            prev.mvrv = deltaFlash(els.mvrvNow, Number(nowZ), prev.mvrv);
+            els.mvrvNote.textContent = j4.realtime ? "Using live price × supply" : "Latest daily close";
+          }
+        } catch(_) {}
 
-        // Risk
+        // 5) Risk pill (simple composite)
         const composite = 0.7 * fgiNum + 0.3 * (Math.min(Math.abs(chgPct),10)*10);
         let level='HIGH', cls='risk-high';
         if (composite<40){ level='LOW'; cls='risk-low'; }
@@ -212,25 +215,32 @@
 
         els.updated.textContent = "Updated: " + new Date().toLocaleString();
       } catch(e){
-        console.error("KPI refresh failed", e);
+        console.error('KPI refresh failed', e);
       }
     }
 
+    /* =========================
+       ONE-TIME LOADS
+    ==========================*/
     function lineChart(canvasId, points, label, yTitle){
       const ctx = document.getElementById(canvasId).getContext('2d');
       new Chart(ctx,{
         type:'line',
-        data:{ labels: points.map(p=>p.t.toLocaleDateString()), datasets:[{label,data:points.map(p=>p.v),tension:0.3,fill:false}] },
-        options:{ scales:{ y:{ beginAtZero:true, title:{ display:true, text:yTitle } } }, plugins:{ legend:{ display:false } } }
+        data:{ labels: points.map(p=>p.t.toLocaleDateString()),
+               datasets:[{label,data:points.map(p=>p.v),tension:0.3,fill:false}] },
+        options:{ scales:{ y:{ beginAtZero:true, title:{ display:true, text:yTitle } } },
+                  plugins:{ legend:{ display:false } } }
       });
     }
-    async function loadChartOnce(){
-      const r = await fetch(`https://api.alternative.me/fng/?limit=30&format=json`);
+
+    async function loadFgiChart(){
+      const r = await fetch('https://api.alternative.me/fng/?limit=30&format=json');
       const { data } = await r.json();
-      const series = data.slice().reverse().map(d=>({t:new Date(d.timestamp*1000), v:parseInt(d.value)}));
-      lineChart('fgiChart',series,'Fear & Greed','Index (0–100)');
+      const series = data.slice().reverse().map(d=>({t:new Date(d.timestamp*1000), v:parseInt(d.value,10)}));
+      lineChart('fgiChart', series, 'Fear & Greed', 'Index (0–100)');
     }
-    function mountTradingView(container,symbol){
+
+    function mountTradingView(container, symbol){
       container.innerHTML='';
       const s=document.createElement('script');
       s.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
@@ -240,17 +250,24 @@
       const cont=document.createElement('div');cont.className="tradingview-widget-container__widget";cont.style.height="100%";
       wrap.appendChild(cont);wrap.appendChild(s);container.appendChild(wrap);
     }
+
     function mountMnavEmbed(){
-      const iframe=document.createElement('iframe');iframe.src="https://strategytracker.com/mstr?embed=1";iframe.loading="lazy";iframe.referrerPolicy="no-referrer-when-downgrade";
+      const iframe=document.createElement('iframe');
+      iframe.src="https://strategytracker.com/mstr?embed=1";
+      iframe.loading="lazy";
+      iframe.referrerPolicy="no-referrer-when-downgrade";
       els.mnavBox.appendChild(iframe);
     }
 
+    /* =========================
+       INIT
+    ==========================*/
     async function init(){
-      await refreshKPIs();          // first paint
-      await loadChartOnce();        // F&G history once
+      await refreshKPIs();           // first paint
+      await loadFgiChart();          // chart once
       mountTradingView(els.tvBtcd,"CRYPTOCAP:BTC.D");
       mountMnavEmbed();
-      setInterval(refreshKPIs,5000); // every 5s
+      setInterval(refreshKPIs, 5000); // KPIs every 5s
     }
     init();
   </script>
