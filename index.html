@@ -21,6 +21,7 @@
     @media (min-width:900px){ .grid{ grid-template-columns:repeat(12,1fr) } }
     .card{ background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:16px; box-shadow:0 10px 25px rgba(0,0,0,0.3) }
     .span-6{ grid-column:span 6 } .span-12{ grid-column:span 12 }
+
     .kpis{ display:flex; gap:16px; flex-wrap:wrap }
     .kpi{ flex:1 1 160px; background:rgba(255,255,255,0.05); border-radius:12px; padding:12px 14px }
     .kpi h3{ margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.3px }
@@ -40,7 +41,30 @@
     .btn{ background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.2); padding:6px 10px; border-radius:10px; font-size:12px; cursor:pointer }
     .btn:hover{ filter:brightness(1.2) }
 
-    /* Flash highlights */
+    /* Coinglass section */
+    .indicators-grid{
+      display:grid; gap:12px; grid-template-columns:1fr;
+    }
+    @media (min-width:720px){
+      .indicators-grid{ grid-template-columns:repeat(2, 1fr); }
+    }
+    @media (min-width:1024px){
+      .indicators-grid{ grid-template-columns:repeat(3, 1fr); }
+    }
+    .ind-card{
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:12px; padding:12px 14px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .ind-card h4{ margin:0; font-size:14px; line-height:1.3 }
+    .open-link{
+      white-space:nowrap; font-size:12px; padding:6px 10px; border-radius:10px;
+      color:var(--accent); border:1px solid rgba(255,255,255,0.2); text-decoration:none;
+    }
+    .open-link:hover{ filter:brightness(1.2) }
+
+    /* Flash highlights for KPIs */
     @keyframes flashUp { 0%{ color:var(--good) } 100%{ color:var(--text) } }
     @keyframes flashDown { 0%{ color:var(--bad) } 100%{ color:var(--text) } }
     @keyframes flashNeutral { 0%{ color:var(--accent) } 100%{ color:var(--text) } }
@@ -114,9 +138,18 @@
         <a class="btn" href="https://strategytracker.com/mstr" target="_blank" rel="noopener">Open on StrategyTracker ↗</a>
       </div>
     </section>
+
+    <!-- NEW: Coinglass indicators -->
+    <section class="card span-12">
+      <h3 style="margin-top:0">Coinglass — Bull Market Peak Indicators (Top 30)</h3>
+      <p class="small muted" style="margin-top:4px;margin-bottom:12px">
+        Coinglass blocks third-party embeds; click any card to open the indicator on Coinglass in a new tab.
+      </p>
+      <div id="cg-grid" class="indicators-grid"></div>
+    </section>
   </main>
 
-  <footer>Built for personal use • Data: Binance, Alternative.me, Frankfurter, TradingView, Coin Metrics, StrategyTracker</footer>
+  <footer>Built for personal use • Data: Binance, Alternative.me, Frankfurter, TradingView, Coin Metrics, StrategyTracker, Coinglass (links)</footer>
 
   <!-- Chart.js (for F&G history) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -125,7 +158,6 @@
     /* =========================
        CONFIG / HELPERS
     ==========================*/
-    // MVRV proxy you used before
     const MVRV_API = "https://mvrvz.netlify.app/.netlify/functions/cm-mvrv";
 
     const els = {
@@ -140,6 +172,7 @@
       mnavBox: document.getElementById('mnav-embed'),
       mvrvNow: document.getElementById('mvrvNow'),
       mvrvNote: document.getElementById('mvrvNote'),
+      cgGrid: document.getElementById('cg-grid'),
     };
 
     const fmtUSD = (n) => Number(n).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2});
@@ -148,7 +181,7 @@
     function flash(el, dir){
       if (!el) return;
       el.classList.remove('flash-up','flash-down','flash');
-      void el.offsetWidth; // reflow to retrigger animation
+      void el.offsetWidth;
       el.classList.add(dir === 'up' ? 'flash-up' : dir === 'down' ? 'flash-down' : 'flash');
     }
     function deltaFlash(el, next, prevVal){
@@ -206,8 +239,7 @@
       // 3) USD/SEK — Frankfurter
       try {
         const fxResp = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK', { cache:'no-store' });
-        if (!fxResp.ok) throw new Error(`Frankfurter ${fxResp.status}`);
-        const fx = await fxResp.json(); // { amount, base, date, rates: { SEK: number } }
+        const fx = await fxResp.json();
         const rateNum = Number(fx?.rates?.SEK);
         if (isFinite(rateNum)) {
           els.usdsek.textContent = `${rateNum.toLocaleString(undefined,{ maximumFractionDigits:4 })} SEK`;
@@ -220,7 +252,7 @@
         els.usdsek.textContent = '—';
       }
 
-      // 4) MVRV-Z — realtime estimate via your proxy
+      // 4) MVRV-Z — realtime estimate
       try {
         const r4 = await fetch(MVRV_API, { cache:'no-store' });
         if (r4.ok) {
@@ -241,7 +273,7 @@
         els.mvrvNow.textContent = '—';
       }
 
-      // 5) Risk pill (simple composite, only if we have the inputs)
+      // 5) Risk pill (simple composite)
       try {
         if (isFinite(fgiNum) && isFinite(chgPct)) {
           const composite = 0.7 * fgiNum + 0.3 * (Math.min(Math.abs(chgPct),10)*10);
@@ -261,7 +293,6 @@
         els.riskPill.textContent='—';
       }
 
-      // Always stamp "Updated" so you know a cycle completed
       els.updated.textContent = "Updated: " + new Date().toLocaleString();
     }
 
@@ -307,15 +338,65 @@
       els.mnavBox.appendChild(iframe);
     }
 
+    /* -------------------------
+       Coinglass links (Top 30)
+    --------------------------*/
+    function renderCoinglassGrid(){
+      const items = [
+        "Pi Cycle Top",
+        "MVRV Z-Score",
+        "Puell Multiple",
+        "Reserve Risk",
+        "NUPL (Net Unrealized Profit Loss)",
+        "RHODL Ratio",
+        "Thermo Cap Ratio",
+        "Realized Cap HODL Waves",
+        "aSOPR (Adjusted SOPR)",
+        "SOPR (LTH/STH)",
+        "Coin Days Destroyed",
+        "NVT Signal (NVTS)",
+        "Mayer Multiple",
+        "200-Week MA Heatmap",
+        "Golden Ratio Multiplier",
+        "2-Year MA Multiplier",
+        "Bollinger Bands Width (BTC)",
+        "Funding Rate Heatmap",
+        "Open Interest vs Price",
+        "Fear & Greed extreme",
+        "Stablecoin Supply Ratio (SSR)",
+        "Exchange Net Position Change",
+        "Miner to Exchange Flows",
+        "Hash Ribbons",
+        "Spent Output Age Bands",
+        "Liveliness",
+        "MVRV Long/Short",
+        "Whale Ratio",
+        "URPD (UTXO Realized Price Distribution)",
+        "Realized Price vs Market Price"
+      ];
+
+      // Build site-scoped search URL so links keep working if Coinglass paths change
+      const toLink = (name) =>
+        `https://www.google.com/search?q=${encodeURIComponent('site:coinglass.com ' + name)}`;
+
+      els.cgGrid.innerHTML = items.map(name => `
+        <div class="ind-card">
+          <h4>${name}</h4>
+          <a class="open-link" href="${toLink(name)}" target="_blank" rel="noopener">Open on Coinglass ↗</a>
+        </div>
+      `).join("");
+    }
+
     /* =========================
        INIT
     ==========================*/
     async function init(){
-      await refreshKPIs();           // first paint
-      await loadFgiChart();          // chart once
+      await refreshKPIs();
+      await loadFgiChart();
       mountTradingView(els.tvBtcd,"CRYPTOCAP:BTC.D");
       mountMnavEmbed();
-      setInterval(refreshKPIs, 5000); // KPIs every 5s
+      renderCoinglassGrid();
+      setInterval(refreshKPIs, 5000);
     }
     init();
   </script>
